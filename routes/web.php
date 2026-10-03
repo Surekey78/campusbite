@@ -1,0 +1,94 @@
+<?php
+require_once APP_ROOT . '/app/Helpers/functions.php';
+require_once APP_ROOT . '/app/Validators/InputValidator.php';
+require_once APP_ROOT . '/app/Middleware/Auth.php';
+require_once APP_ROOT . '/app/Models/Order.php';
+require_once APP_ROOT . '/app/Controllers/Controller.php';
+require_once APP_ROOT . '/app/Controllers/AuthController.php';
+require_once APP_ROOT . '/app/Controllers/BrowseController.php';
+require_once APP_ROOT . '/app/Controllers/MediaController.php';
+require_once APP_ROOT . '/app/Controllers/StudentController.php';
+require_once APP_ROOT . '/app/Controllers/VendorController.php';
+require_once APP_ROOT . '/app/Controllers/AdminController.php';
+require_once APP_ROOT . '/app/Controllers/NotificationController.php';
+
+return [
+    'home' => [BrowseController::class, 'home'],
+    'foods' => [BrowseController::class, 'foods'],
+    'food' => [BrowseController::class, 'food'],
+    'vendors' => [BrowseController::class, 'vendors'],
+    'vendor' => [BrowseController::class, 'vendor'],
+    'content' => [BrowseController::class, 'content'],
+    'media.view' => [MediaController::class, 'view'],
+
+    'auth.login' => [AuthController::class, 'login'],
+    'auth.register' => [AuthController::class, 'register'],
+    'auth.vendor' => [AuthController::class, 'vendorApply'],
+    'auth.logout' => [AuthController::class, 'logout'],
+    'account.password' => [AuthController::class, 'password'],
+
+    'cart' => [StudentController::class, 'cart'],
+    'cart.add' => [StudentController::class, 'cartAdd'],
+    'cart.update' => [StudentController::class, 'cartUpdate'],
+    'cart.remove' => [StudentController::class, 'cartRemove'],
+    'checkout' => [StudentController::class, 'checkout'],
+    'order.place' => [StudentController::class, 'placeOrder'],
+    'my.orders' => [StudentController::class, 'orders'],
+    'my.order' => [StudentController::class, 'order'],
+    'my.order.cancel' => [StudentController::class, 'cancelOrder'],
+    'reviews.create' => [StudentController::class, 'reviewForm'],
+    'reviews.edit' => [StudentController::class, 'reviewEdit'],
+    'reviews.save' => [StudentController::class, 'reviewSave'],
+    'reviews.report' => [StudentController::class, 'reviewReport'],
+    'profile' => [StudentController::class, 'profile'],
+    'profile.save' => [StudentController::class, 'profileSave'],
+    'notifications' => [NotificationController::class, 'index'],
+    'notifications.read' => [NotificationController::class, 'read'],
+    'notifications.open' => [NotificationController::class, 'open'],
+
+    'vendor.dashboard' => [VendorController::class, 'dashboard'],
+    'vendor.orders' => [VendorController::class, 'orders'],
+    'vendor.order.status' => [VendorController::class, 'orderStatus'],
+    'vendor.products' => [VendorController::class, 'products'],
+    'vendor.product.new' => [VendorController::class, 'productNew'],
+    'vendor.product.edit' => [VendorController::class, 'productEdit'],
+    'vendor.product.save' => [VendorController::class, 'productSave'],
+    'vendor.product.toggle' => [VendorController::class, 'productToggle'],
+    'vendor.categories' => [VendorController::class, 'categories'],
+    'vendor.category.save' => [VendorController::class, 'categorySave'],
+    'vendor.category.toggle' => [VendorController::class, 'categoryToggle'],
+    'vendor.inventory' => [VendorController::class, 'inventory'],
+    'vendor.inventory.move' => [VendorController::class, 'inventoryMove'],
+    'vendor.pos' => [VendorController::class, 'pos'],
+    'vendor.pos.complete' => [VendorController::class, 'posComplete'],
+    'vendor.reports' => [VendorController::class, 'reports'],
+    'vendor.reviews' => [VendorController::class, 'reviews'],
+    'vendor.review.reply' => [VendorController::class, 'reviewReply'],
+    'vendor.settings' => [VendorController::class, 'settings'],
+    'vendor.settings.save' => [VendorController::class, 'settingsSave'],
+
+    'admin.dashboard' => [AdminController::class, 'dashboard'],
+    'admin.users' => [AdminController::class, 'users'],
+    'admin.user.status' => [AdminController::class, 'userStatus'],
+    'admin.vendors' => [AdminController::class, 'vendors'],
+    'admin.vendor.action' => [AdminController::class, 'vendorAction'],
+    'admin.foods' => [AdminController::class, 'foods'],
+    'admin.inventory' => [AdminController::class, 'inventory'],
+    'admin.food.toggle' => [AdminController::class, 'foodToggle'],
+    'admin.orders' => [AdminController::class, 'orders'],
+    'admin.order.status' => [AdminController::class, 'orderStatus'],
+    'admin.reviews' => [AdminController::class, 'reviews'],
+    'admin.review.status' => [AdminController::class, 'reviewStatus'],
+    'admin.categories' => [AdminController::class, 'categories'],
+    'admin.category.save' => [AdminController::class, 'categorySave'],
+    'admin.category.toggle' => [AdminController::class, 'categoryToggle'],
+    'admin.cms' => [AdminController::class, 'cms'],
+    'admin.cms.save' => [AdminController::class, 'cmsSave'],
+    'admin.media' => [AdminController::class, 'media'],
+    'admin.media.upload' => [AdminController::class, 'mediaUpload'],
+    'admin.media.delete' => [AdminController::class, 'mediaDelete'],
+    'admin.settings' => [AdminController::class, 'settings'],
+    'admin.settings.save' => [AdminController::class, 'settingsSave'],
+    'admin.audit' => [AdminController::class, 'audit'],
+    'admin.reports' => [AdminController::class, 'reports'],
+];

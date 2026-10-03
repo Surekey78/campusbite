@@ -1,0 +1,54 @@
+# CampusBite
+
+A PHP/MySQL campus food ordering and management app, designed to run directly from XAMPP. It uses a root-level `index.php` front controller, MySQL/MariaDB as the source of truth, and plain PHP, HTML, CSS, vanilla JavaScript, and `mysqli`—no framework, package manager, Node build, or separate `public` directory.
+
+## Quick start (XAMPP on Windows)
+
+1. Install/start XAMPP with **Apache** and **MySQL**. Use PHP 8.0 or later with `mysqli`/mysqlnd, `mbstring`, and `fileinfo` enabled (these are normally included/enabled in XAMPP).
+2. Copy this project folder to `C:\xampp\htdocs\campusbite`. Confirm `C:\xampp\htdocs\campusbite\index.php` and `schema.sql` exist.
+3. Start **Apache** and **MySQL** in the XAMPP Control Panel.
+4. Open `http://localhost/phpmyadmin/`, choose **Import**, select `C:\xampp\htdocs\campusbite\schema.sql`, and run the import. The script creates and selects the `campusbite` database, its tables, demo records, and database-stored sample food images.
+5. Open `http://localhost/campusbite/`.
+
+The default local XAMPP database settings are `localhost`, database `campusbite`, user `root`, blank password, port `3306`. If yours differ, set `CAMPUSBITE_DB_HOST`, `CAMPUSBITE_DB_NAME`, `CAMPUSBITE_DB_USER`, `CAMPUSBITE_DB_PASSWORD`, and/or `CAMPUSBITE_DB_PORT` in Apache's environment before starting it. Defaults are in `config/database.php`. Restart Apache after changing environment variables.
+
+If Apache is using a nonstandard port, include it in the URL (for example `http://localhost:8080/campusbite/`). If the home page does not load, verify Apache and MySQL are running and the folder is named `campusbite` under `htdocs`.
+
+## Demonstration accounts
+
+All six seeded accounts use the temporary password **`password`**. Log in at `/campusbite/index.php?r=auth.login` (or use the Sign in link). Change the password for each account you keep; signed-in users can use **Password** in the header. Do not expose the demo credentials on a live/public server.
+
+| Role / status | Email | Password |
+|---|---|---|
+| Administrator | `admin@campusbite.test` | `password` |
+| Student | `student@campusbite.test` | `password` |
+| Student | `noah@campusbite.test` | `password` |
+| Vendor — Campus Grill, active | `vendor@campusbite.test` | `password` |
+| Vendor — Morning Mug, active | `mug@campusbite.test` | `password` |
+| Vendor — Cebu Campus Bakes, awaiting approval | `bakes@campusbite.test` | `password` |
+
+A new vendor application also stays pending until an administrator approves it. The pre-seeded pending vendor can be used to demonstrate that status and the admin approval flow. Seed records use `INSERT IGNORE`, so importing the file again does not reset existing data or passwords. Back up your database before re-importing or changing schema/data.
+
+## Typical demonstration flow
+
+1. As a visitor, browse and search foods, categories, and active vendor storefronts without signing in.
+2. Sign in as a student, add items from one vendor to the cart, check out, and pay **cash at pickup**. Follow status changes under **My orders**; after completion, submit/edit a review for eligible items.
+3. Sign in as an active vendor to manage foods/categories, record inventory movements, review incoming orders, update order status, and use the cash-only POS. The POS records its sale as a completed order.
+4. Sign in as the administrator to approve/suspend vendors, manage users and categories, moderate reviews/reports, edit CMS content/site settings, inspect inventory/reports, and review audit entries.
+
+## Important behavior and scope
+
+- **Payment is cash only.** The app does not integrate an online payment gateway, card processor, wallet, or delivery service.
+- A student checkout contains items from a single vendor. Inventory is checked and reserved in database transactions; valid cancellation/rejection releases reservations. POS sales also update stock transactionally.
+- Application and database-session dates use Philippine time (Asia/Manila, UTC+8). Order outcomes are counted by order-created date; completed sales and completed-order metrics use completion dates. This distinction is shown in the vendor/admin reports.
+- Seeded and vendor-uploaded food images, plus CMS page images, are stored in `media.data` (`LONGBLOB`) and served through the media route. There is no permanent `uploads` directory or Base64 image storage.
+- Notifications are in-app. Email, SMS, native push, password-reset email, and external storage are not configured.
+- Maintenance mode and other system settings are controlled by an administrator. Avoid enabling maintenance mode during a public demonstration.
+
+## Security and data notes
+
+The app uses password hashing, database-backed sign-in throttling keyed by a hashed email/IP pair, prepared `mysqli` statements, server-side role/permission checks, CSRF tokens on state-changing forms, session ID and CSRF-token regeneration at sign-in/password change, output escaping, validation, transaction-safe order/inventory operations, upload checks, and audit logging for administrative actions. New passwords must be 10 or more characters and no more than 72 bytes. Notification failures are logged after order/status database commits so they do not make saved transactions appear to have rolled back.
+
+This project is intended as a local/demo campus app, not a hardened public production deployment. Before real use: replace demo credentials, configure a dedicated least-privilege database account and strong database password, use HTTPS, review campus privacy/security requirements, set backups and log rotation, test access controls, and have an administrator manage accounts. The standard XAMPP `root`/blank-password database configuration is for a local development machine only.
+
+Application logs are written to `storage/logs/app.log` when Apache can write there. Keep the log directory non-public; the included `.htaccess` denies web access to it under Apache. Do not place database exports, credentials, or backups in the web root.

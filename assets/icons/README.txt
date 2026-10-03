@@ -1,0 +1,1 @@
+The CampusBite mark is a custom, local SVG asset. No external icon or font services are required.
