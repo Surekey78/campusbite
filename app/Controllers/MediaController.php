@@ -4,7 +4,7 @@ require_once APP_ROOT . '/app/Services/MediaService.php';
 
 final class MediaController extends Controller
 {
-    public function view(): void
+    public function serve(): void
     {
         $id = $this->positiveId($_GET['id'] ?? null, 'Image');
         $public = db_one("SELECT m.id FROM media m WHERE m.id=? AND (

@@ -19,7 +19,7 @@ return [
     'vendors' => [BrowseController::class, 'vendors'],
     'vendor' => [BrowseController::class, 'vendor'],
     'content' => [BrowseController::class, 'content'],
-    'media.view' => [MediaController::class, 'view'],
+    'media.view' => [MediaController::class, 'serve'],
 
     'auth.login' => [AuthController::class, 'login'],
     'auth.register' => [AuthController::class, 'register'],
