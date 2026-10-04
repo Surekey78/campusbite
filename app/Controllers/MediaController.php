@@ -12,7 +12,19 @@ final class MediaController extends Controller
             OR EXISTS (SELECT 1 FROM vendors v WHERE v.logo_media_id=m.id AND v.status='ACTIVE')
             OR EXISTS (SELECT 1 FROM cms_content c WHERE c.image_media_id=m.id AND c.is_published=1)
         ) LIMIT 1", 'i', [$id]);
-        if (!$public && !can('media.manage')) throw new HttpException(404, 'That image could not be found.');
-        MediaService::stream($id);
+        $profilePhoto = db_one('SELECT user_id FROM user_profile_photos WHERE media_id=? LIMIT 1', 'i', [$id]);
+        $viewer = current_user();
+        $canManageMedia = $viewer && can('media.manage');
+        $ownsProfilePhoto = $profilePhoto && $viewer && (int) $profilePhoto['user_id'] === (int) $viewer['id'];
+
+        if ($profilePhoto) {
+            if (!$public && !$ownsProfilePhoto && !$canManageMedia) {
+                throw new HttpException(404, 'That image could not be found.');
+            }
+        } elseif (!$public && !$canManageMedia) {
+            throw new HttpException(404, 'That image could not be found.');
+        }
+
+        MediaService::stream($id, (bool) ($profilePhoto && !$public));
     }
 }
