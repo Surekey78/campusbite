@@ -5,6 +5,7 @@ require_once APP_ROOT . '/app/Middleware/Auth.php';
 require_once APP_ROOT . '/app/Models/Order.php';
 require_once APP_ROOT . '/app/Controllers/Controller.php';
 require_once APP_ROOT . '/app/Controllers/AuthController.php';
+require_once APP_ROOT . '/app/Controllers/AccountController.php';
 require_once APP_ROOT . '/app/Controllers/BrowseController.php';
 require_once APP_ROOT . '/app/Controllers/MediaController.php';
 require_once APP_ROOT . '/app/Controllers/StudentController.php';
@@ -23,7 +24,6 @@ return [
 
     'auth.login' => [AuthController::class, 'login'],
     'auth.register' => [AuthController::class, 'register'],
-    'auth.vendor' => [AuthController::class, 'vendorApply'],
     'auth.logout' => [AuthController::class, 'logout'],
     'account.password' => [AuthController::class, 'password'],
 
@@ -40,8 +40,8 @@ return [
     'reviews.edit' => [StudentController::class, 'reviewEdit'],
     'reviews.save' => [StudentController::class, 'reviewSave'],
     'reviews.report' => [StudentController::class, 'reviewReport'],
-    'profile' => [StudentController::class, 'profile'],
-    'profile.save' => [StudentController::class, 'profileSave'],
+    'profile' => [AccountController::class, 'profile'],
+    'profile.save' => [AccountController::class, 'profileSave'],
     'notifications' => [NotificationController::class, 'index'],
     'notifications.read' => [NotificationController::class, 'read'],
     'notifications.open' => [NotificationController::class, 'open'],
@@ -71,6 +71,7 @@ return [
     'admin.users' => [AdminController::class, 'users'],
     'admin.user.status' => [AdminController::class, 'userStatus'],
     'admin.vendors' => [AdminController::class, 'vendors'],
+    'admin.vendor.create' => [AdminController::class, 'vendorCreate'],
     'admin.vendor.action' => [AdminController::class, 'vendorAction'],
     'admin.foods' => [AdminController::class, 'foods'],
     'admin.inventory' => [AdminController::class, 'inventory'],

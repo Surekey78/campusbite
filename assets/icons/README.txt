@@ -1,1 +1,1 @@
-The CampusBite mark is a custom, local SVG asset. No external icon or font services are required.
+The CampusBite mark and favicon are custom local SVG assets, styled with the Neo-Brutalist yellow, charcoal, sage, white, and black palette. Interface typography uses Cabinet Grotesk and Satoshi through Fontshare's stylesheet with local system-font fallbacks; no icon or JavaScript service is required.

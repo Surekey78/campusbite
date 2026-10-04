@@ -1,7 +1,7 @@
 <?php if (!empty($pending)): ?>
-  <?php $status=$vendor['status']; $badgeLabel=match ($status) { 'PENDING' => 'Pending approval', 'REJECTED' => 'Rejected', 'SUSPENDED' => 'Suspended', default => status_label($status) }; $statusMessage=match ($status) { 'PENDING' => 'Your application is awaiting administrator approval. Foods, orders, and POS unlock after approval.', 'REJECTED' => 'This application was not approved. Contact a campus administrator if you need clarification.', 'SUSPENDED' => 'Your storefront is suspended. Contact a campus administrator; reactivation requires an active owner account.', default => 'Your storefront is not available yet. Contact a campus administrator for help.' }; ?>
+  <?php $status=$vendor['status']; $badgeLabel=match ($status) { 'PENDING' => 'Pending activation', 'REJECTED' => 'Rejected', 'SUSPENDED' => 'Suspended', default => status_label($status) }; $statusMessage=match ($status) { 'PENDING' => 'Your vendor account is ready. Its storefront is waiting for administrator activation. Foods, orders, and POS unlock after activation.', 'REJECTED' => 'This storefront was not approved. Contact a campus administrator if you need clarification.', 'SUSPENDED' => 'Your storefront is suspended. Contact a campus administrator; reactivation requires an active owner account.', default => 'Your storefront is not available yet. Contact a campus administrator for help.' }; ?>
   <div class="page-heading"><div><p class="eyebrow">Storefront status</p><h1><?= h($vendor['name']) ?></h1><p>Your CampusBite storefront is not public yet.</p></div><?php require APP_ROOT . '/views/components/status-badge.php'; ?></div>
-  <div class="panel" style="max-width:720px"><h2><?= $status === 'PENDING' ? 'Application status' : 'Store status' ?></h2><p><?= h($statusMessage) ?></p><p class="muted">Pickup location: <?= h($vendor['pickup_location']) ?><?= $vendor['stall_label'] ? ' · ' . h($vendor['stall_label']) : '' ?></p><a class="button button-secondary" href="<?= h(app_url('notifications')) ?>">Check updates</a></div>
+  <div class="panel" style="max-width:720px"><h2><?= $status === 'PENDING' ? 'Storefront status' : 'Store status' ?></h2><p><?= h($statusMessage) ?></p><p class="muted">Pickup location: <?= h($vendor['pickup_location']) ?><?= $vendor['stall_label'] ? ' · ' . h($vendor['stall_label']) : '' ?></p><a class="button button-secondary" href="<?= h(app_url('notifications')) ?>">Check updates</a></div>
 <?php else: ?>
 <div class="page-heading"><div><p class="eyebrow"><?= h(date('l, F j')) ?></p><h1>Good day, <?= h(explode(' ', $vendor['owner_name'])[0]) ?></h1><p>Here is what is happening at <?= h($vendor['name']) ?> today.</p></div><div class="button-row"><a class="button button-secondary" href="<?= h(app_url('vendor.orders', ['status' => 'PENDING'])) ?>">Pending orders · <?= (int) ($counts['PENDING'] ?? 0) ?></a><a class="button" href="<?= h(app_url('vendor.pos')) ?>">Open POS</a></div></div>
 <div class="kpi-grid">
@@ -30,10 +30,5 @@
   <section class="panel"><div class="spread"><h2 class="panel-title">Best sellers</h2><a class="text-link" href="<?= h(app_url('vendor.reports')) ?>">Full report →</a></div>
     <?php if ($bestSellers): ?><div class="activity-list"><?php foreach ($bestSellers as $food): ?><div class="activity-item"><span class="activity-dot" aria-hidden="true"></span><div class="spread"><strong><?= h($food['food_name']) ?></strong><span class="muted small"><?= (int) $food['units_sold'] ?> sold · <?= h(money($food['sales'])) ?></span></div></div><?php endforeach; ?></div><?php else: ?><p class="muted">Completed order data will build this list.</p><?php endif; ?>
   </section>
-</div>
-<div class="workspace-nav-grid" aria-label="Vendor workspace areas">
-  <a href="<?= h(app_url('vendor.categories')) ?>"><strong>Categories</strong><span>Create and organize menu groups</span></a>
-  <a href="<?= h(app_url('vendor.settings')) ?>"><strong>Store settings</strong><span>Pickup details and order availability</span></a>
-  <a href="<?= h(app_url('vendor.reviews')) ?>"><strong>Reviews</strong><span>Read feedback and reply</span></a>
 </div>
 <?php endif; ?>

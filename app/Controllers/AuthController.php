@@ -66,43 +66,6 @@ final class AuthController extends Controller
         $this->view('auth/register', ['title' => 'Create a student account']);
     }
 
-    public function vendorApply(): void
-    {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $owner = InputValidator::text($_POST['owner_name'] ?? '', 120, 'Your name');
-            $store = InputValidator::text($_POST['store_name'] ?? '', 120, 'Store name');
-            $email = InputValidator::email($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $confirm = $_POST['password_confirmation'] ?? '';
-            if (!is_string($password) || !is_string($confirm)) throw new InvalidArgumentException('Password fields must be plain text.');
-            $location = InputValidator::text($_POST['pickup_location'] ?? '', 180, 'Pickup location');
-            $stall = InputValidator::text($_POST['stall_label'] ?? '', 80, 'Stall or counter', false);
-            $description = InputValidator::text($_POST['description'] ?? '', 1000, 'Store description', false);
-            if (strlen($password) < 10 || strlen($password) > 72) throw new InvalidArgumentException('Use a password between 10 and 72 bytes.');
-            if ($password !== $confirm) throw new InvalidArgumentException('The passwords do not match.');
-            if (db_one('SELECT id FROM users WHERE email=?', 's', [$email])) throw new InvalidArgumentException('That email is already registered. Sign in or use another email.');
-            $db = db(); $db->begin_transaction();
-            try {
-                $role = db_one("SELECT id FROM roles WHERE name='VENDOR'");
-                $user = db_exec('INSERT INTO users (role_id, full_name, email, password_hash, status, created_at, updated_at) VALUES (?, ?, ?, ?, \'ACTIVE\', NOW(), NOW())', 'isss', [(int) $role['id'], $owner, $email, password_hash($password, PASSWORD_DEFAULT)]);
-                $slug = slugify($store) . '-' . strtolower(bin2hex(random_bytes(3)));
-                $vendor = db_exec("INSERT INTO vendors (user_id, name, slug, description, pickup_location, stall_label, prep_minutes, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 15, 'PENDING', NOW(), NOW())", 'isssss', [(int) $user['insert_id'], $store, $slug, $description, $location, $stall ?: null]);
-                db_exec('INSERT INTO vendor_settings (vendor_id, accepting_orders, store_notice, created_at, updated_at) VALUES (?, 0, \'Application under review\', NOW(), NOW())', 'i', [(int) $vendor['insert_id']]);
-                $db->commit();
-                session_regenerate_id(true);
-                unset($_SESSION['_csrf']);
-                $_SESSION['user_id'] = (int) $user['insert_id'];
-                audit_log('Submitted vendor application', 'vendor', (int) $vendor['insert_id'], ['name' => $store]);
-                flash_set('success', 'Application submitted. You can sign in and check its status while an administrator reviews it.');
-                redirect('vendor.dashboard');
-            } catch (Throwable $e) {
-                $db->rollback();
-                throw $e;
-            }
-        }
-        $this->view('auth/vendor-apply', ['title' => 'Apply as a campus vendor']);
-    }
-
     public function password(): void
     {
         $user = require_login();

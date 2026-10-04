@@ -11,6 +11,55 @@
     });
   }
 
+  const workspace = document.querySelector('[data-workspace-layout]');
+  if (workspace) {
+    const sidebarToggle = workspace.querySelector('[data-sidebar-toggle]');
+    const sidebar = workspace.querySelector('#workspace-sidebar');
+    const backdrop = workspace.querySelector('[data-sidebar-close]');
+    const mobileViewport = window.matchMedia('(max-width: 1100px)');
+
+    const setSidebarOpen = (open, returnFocus = false) => {
+      workspace.classList.toggle('is-sidebar-open', open);
+      document.body.classList.toggle('workspace-sidebar-open', open && mobileViewport.matches);
+      if (sidebarToggle) {
+        sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        sidebarToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+      }
+      if (backdrop) backdrop.hidden = !open;
+      if (sidebar) {
+        const hiddenOnMobile = mobileViewport.matches && !open;
+        sidebar.inert = hiddenOnMobile;
+        sidebar.setAttribute('aria-hidden', hiddenOnMobile ? 'true' : 'false');
+      }
+      if (open && sidebar) {
+        const firstLink = sidebar.querySelector('a, button');
+        firstLink?.focus({ preventScroll: true });
+      } else if (returnFocus) {
+        sidebarToggle?.focus({ preventScroll: true });
+      }
+    };
+
+    sidebarToggle?.addEventListener('click', () => {
+      const isOpen = workspace.classList.contains('is-sidebar-open');
+      setSidebarOpen(!isOpen, isOpen);
+    });
+    backdrop?.addEventListener('click', () => setSidebarOpen(false, true));
+    sidebar?.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        if (mobileViewport.matches) setSidebarOpen(false);
+      });
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && workspace.classList.contains('is-sidebar-open')) {
+        setSidebarOpen(false, true);
+      }
+    });
+    mobileViewport.addEventListener('change', (event) => {
+      setSidebarOpen(false);
+    });
+    setSidebarOpen(false);
+  }
+
   document.querySelectorAll('form[data-confirm]').forEach((form) => {
     form.addEventListener('submit', (event) => {
       const message = form.getAttribute('data-confirm') || 'Continue with this action?';

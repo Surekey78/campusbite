@@ -9,5 +9,5 @@
     <button class="button" type="submit" data-loading-text="Signing in…">Sign in</button>
   </form>
   <p class="small muted" style="margin:18px 0 0">New to CampusBite? <a href="<?= h(app_url('auth.register')) ?>">Create a student account</a>.</p>
-  <p class="small muted" style="margin:7px 0 0">Campus vendor? <a href="<?= h(app_url('auth.vendor')) ?>">Apply for a storefront</a>.</p>
+  <p class="small muted" style="margin:7px 0 0">Campus vendor? Contact your campus administrator to request an account.</p>
 </section>

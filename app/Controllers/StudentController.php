@@ -198,21 +198,4 @@ final class StudentController extends Controller
         redirect('food', ['id' => (int) (db_one('SELECT food_id FROM reviews WHERE id=?', 'i', [$reviewId])['food_id'] ?? 0)]);
     }
 
-    public function profile(): void
-    {
-        $user = $this->student('profile.manage');
-        $this->view('student/profile', compact('user') + ['title' => 'Profile']);
-    }
-
-    public function profileSave(): void
-    {
-        $this->postOnly();
-        $user = $this->student('profile.manage');
-        $name = InputValidator::text($_POST['full_name'] ?? '', 120, 'Full name');
-        $phone = InputValidator::text($_POST['phone'] ?? '', 30, 'Phone number', false);
-        db_exec('UPDATE users SET full_name=?, phone=?, updated_at=NOW() WHERE id=?', 'ssi', [$name, $phone ?: null, (int) $user['id']]);
-        audit_log('Updated profile', 'user', (int) $user['id']);
-        flash_set('success', 'Profile saved.');
-        redirect('profile');
-    }
 }

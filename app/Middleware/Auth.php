@@ -36,7 +36,7 @@ function require_active_vendor(): array
     }
     $vendor = current_vendor();
     if (!$vendor || $vendor['status'] !== 'ACTIVE') {
-        throw new HttpException(403, 'Your vendor application must be approved before you can use this feature.');
+        throw new HttpException(403, 'Your vendor storefront must be active before you can use this feature.');
     }
     return $user;
 }

@@ -10,7 +10,7 @@ final class VendorController extends Controller
         if ($user['role'] !== 'VENDOR') throw new HttpException(403, 'This page is for vendor accounts.');
         $vendor = current_vendor();
         if (!$vendor) throw new HttpException(403, 'Vendor profile not found.');
-        if ($mustBeActive && $vendor['status'] !== 'ACTIVE') throw new HttpException(403, 'Your vendor application is ' . strtolower($vendor['status']) . '. An administrator must approve it before this feature is available.');
+        if ($mustBeActive && $vendor['status'] !== 'ACTIVE') throw new HttpException(403, 'Your storefront is ' . strtolower($vendor['status']) . '. An administrator must activate it before these features are available.');
         return [$user, $vendor];
     }
 

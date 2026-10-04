@@ -410,20 +410,21 @@ INSERT IGNORE INTO permissions (permission_key, description) VALUES
  ('review.respond','Respond to reviews'),
  ('vendor.settings','Manage storefront settings'),
  ('users.manage','Manage users'),
- ('vendors.manage','Manage vendor applications'),
+ ('vendors.manage','Create vendor accounts and manage storefronts'),
  ('orders.manage_all','Manage all orders'),
  ('reviews.manage','Moderate reviews'),
  ('cms.manage','Manage public site content'),
  ('media.manage','Manage database media'),
  ('system.manage','Manage system settings'),
  ('audit.view','View audit history');
+UPDATE permissions SET description='Create vendor accounts and manage storefronts' WHERE permission_key='vendors.manage';
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.name='ADMIN';
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_key IN ('food.view','cart.manage','order.create','order.view_own','review.create','review.report','profile.manage') WHERE r.name='STUDENT';
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_key IN ('dashboard.view','food.create','food.update','food.delete','category.manage','inventory.view','inventory.manage','order.manage','pos.use','reports.view','review.respond','vendor.settings') WHERE r.name='VENDOR';
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.permission_key IN ('dashboard.view','food.create','food.update','food.delete','category.manage','inventory.view','inventory.manage','order.manage','pos.use','reports.view','review.respond','vendor.settings','profile.manage') WHERE r.name='VENDOR';
 
 -- Demonstration accounts. All six use password: password. Change these before a real deployment.
 INSERT IGNORE INTO users (id, role_id, full_name, email, password_hash, phone, status, created_at) VALUES
@@ -450,7 +451,7 @@ INSERT IGNORE INTO vendors (id, user_id, name, slug, description, pickup_locatio
 INSERT IGNORE INTO vendor_settings (vendor_id, accepting_orders, store_notice) VALUES
  (1, 1, 'Freshly prepared. Please allow a few extra minutes during lunch.'),
  (2, 1, 'Cold drinks stay cold—pick up as soon as you get the ready alert.'),
- (3, 0, 'Application under review.');
+ (3, 0, 'Storefront pending administrator activation.');
 
 INSERT IGNORE INTO food_categories (id, vendor_id, name, slug, description, sort_order, is_active) VALUES
  (1, NULL, 'Rice meals', 'rice-meals', 'Warm, filling campus meals.', 1, 1),

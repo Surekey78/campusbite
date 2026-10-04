@@ -16,7 +16,7 @@ If Apache is using a nonstandard port, include it in the URL (for example `http:
 
 ## Demonstration accounts
 
-All six seeded accounts use the temporary password **`password`**. Log in at `/campusbite/index.php?r=auth.login` (or use the Sign in link). Change the password for each account you keep; signed-in users can use **Password** in the header. Do not expose the demo credentials on a live/public server.
+All six seeded accounts use the temporary password **`password`**. Log in at `/campusbite/index.php?r=auth.login` (or use the Sign in link). The same complete account list is available in [`demo_accounts.txt`](demo_accounts.txt). Change the password for each account you keep; signed-in workspace users can use **Password & security** at the bottom of the sidebar. Do not expose the demo credentials on a live/public server.
 
 | Role / status | Email | Password |
 |---|---|---|
@@ -25,19 +25,22 @@ All six seeded accounts use the temporary password **`password`**. Log in at `/c
 | Student | `noah@campusbite.test` | `password` |
 | Vendor — Campus Grill, active | `vendor@campusbite.test` | `password` |
 | Vendor — Morning Mug, active | `mug@campusbite.test` | `password` |
-| Vendor — Cebu Campus Bakes, awaiting approval | `bakes@campusbite.test` | `password` |
+| Vendor — Cebu Campus Bakes, storefront pending activation | `bakes@campusbite.test` | `password` |
 
-A new vendor application also stays pending until an administrator approves it. The pre-seeded pending vendor can be used to demonstrate that status and the admin approval flow. Seed records use `INSERT IGNORE`, so importing the file again does not reset existing data or passwords. Back up your database before re-importing or changing schema/data.
+Only administrators can create vendor accounts. Use **Admin → Vendors → Create vendor account** to enter the vendor login and storefront details; the administrator chooses whether its storefront starts Pending (closed) or Active. There is no public vendor sign-up or application route. The pre-seeded pending vendor can still demonstrate storefront activation. On an existing installation, back up the database and re-import the updated `schema.sql` so vendor roles receive the self-profile permission; seed statements use `INSERT IGNORE` and do not overwrite existing records or passwords. Keep a backup before any schema import or data change.
 
 ## Typical demonstration flow
 
 1. As a visitor, browse and search foods, categories, and active vendor storefronts without signing in.
 2. Sign in as a student, add items from one vendor to the cart, check out, and pay **cash at pickup**. Follow status changes under **My orders**; after completion, submit/edit a review for eligible items.
 3. Sign in as an active vendor to manage foods/categories, record inventory movements, review incoming orders, update order status, and use the cash-only POS. The POS records its sale as a completed order.
-4. Sign in as the administrator to approve/suspend vendors, manage users and categories, moderate reviews/reports, edit CMS content/site settings, inspect inventory/reports, and review audit entries.
+4. Sign in as the administrator to create vendor accounts, activate/suspend storefronts, manage users and categories, moderate reviews/reports, edit CMS content/site settings, inspect inventory/reports, and review audit entries.
+
+Signed-in student, active or pending vendor, and admin accounts use role-specific left-side workspace navigation; on smaller screens it becomes a dismissible mobile drawer. Every signed-in role can update its own name and optional phone number under **Profile**; email changes remain administrator-managed. Password and sign-out controls stay at the bottom of the sidebar. Visitors and other public pages keep the existing top navigation.
 
 ## Important behavior and scope
 
+- The interface uses a high-contrast Neo-Brutalist palette and Cabinet Grotesk/Satoshi typography. Those web fonts are served by Fontshare when internet is available; system-font fallbacks keep the app readable offline. No font binaries are bundled in the project.
 - **Payment is cash only.** The app does not integrate an online payment gateway, card processor, wallet, or delivery service.
 - A student checkout contains items from a single vendor. Inventory is checked and reserved in database transactions; valid cancellation/rejection releases reservations. POS sales also update stock transactionally.
 - Application and database-session dates use Philippine time (Asia/Manila, UTC+8). Order outcomes are counted by order-created date; completed sales and completed-order metrics use completion dates. This distinction is shown in the vendor/admin reports.

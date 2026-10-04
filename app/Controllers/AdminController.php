@@ -85,6 +85,84 @@ final class AdminController extends Controller
         $this->view('admin/vendors', compact('vendors', 'status') + ['title' => 'Vendors']);
     }
 
+    public function vendorCreate(): void
+    {
+        $actor = $this->admin('vendors.manage');
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            $this->view('admin/vendor-create', ['title' => 'Create vendor account']);
+            return;
+        }
+
+        $this->postOnly();
+        $ownerName = InputValidator::text($_POST['owner_name'] ?? '', 120, 'Account holder name');
+        $storeName = InputValidator::text($_POST['store_name'] ?? '', 120, 'Store name');
+        $email = InputValidator::email($_POST['email'] ?? '');
+        $phone = InputValidator::text($_POST['phone'] ?? '', 30, 'Phone number', false);
+        $pickupLocation = InputValidator::text($_POST['pickup_location'] ?? '', 180, 'Pickup location');
+        $stallLabel = InputValidator::text($_POST['stall_label'] ?? '', 80, 'Stall or counter', false);
+        $description = InputValidator::text($_POST['description'] ?? '', 1000, 'Store description', false);
+        $prepMinutes = InputValidator::positiveInt($_POST['prep_minutes'] ?? 15, 'Typical preparation time', 5, 180);
+        $password = $_POST['password'] ?? '';
+        $confirmation = $_POST['password_confirmation'] ?? '';
+        if (!is_string($password) || !is_string($confirmation)) throw new InvalidArgumentException('Password fields must be plain text.');
+        if (strlen($password) < 10 || strlen($password) > 72) throw new InvalidArgumentException('Use an initial password between 10 and 72 bytes.');
+        if ($password !== $confirmation) throw new InvalidArgumentException('The password fields do not match.');
+        $statusValue = $_POST['storefront_status'] ?? 'PENDING';
+        if (!is_string($statusValue)) throw new InvalidArgumentException('Choose a valid storefront status.');
+        $storefrontStatus = strtoupper(trim($statusValue));
+        if (!in_array($storefrontStatus, ['PENDING', 'ACTIVE'], true)) throw new InvalidArgumentException('Choose Pending or Active for the storefront.');
+
+        $db = db();
+        $db->begin_transaction();
+        try {
+            if (db_one('SELECT id FROM users WHERE email=? LIMIT 1', 's', [$email])) {
+                throw new InvalidArgumentException('That email is already registered. Choose another email.');
+            }
+            $vendorRole = db_one("SELECT id FROM roles WHERE name='VENDOR' LIMIT 1");
+            if (!$vendorRole) throw new RuntimeException('The VENDOR role is not configured.');
+            $account = db_exec("INSERT INTO users (role_id, full_name, email, password_hash, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'ACTIVE', NOW(), NOW())", 'issss', [
+                (int) $vendorRole['id'],
+                $ownerName,
+                $email,
+                password_hash($password, PASSWORD_DEFAULT),
+                $phone !== '' ? $phone : null,
+            ]);
+            $userId = (int) $account['insert_id'];
+            $slug = slugify($storeName) . '-' . strtolower(bin2hex(random_bytes(3)));
+            $approvedAt = $storefrontStatus === 'ACTIVE' ? date('Y-m-d H:i:s') : null;
+            $approvedBy = $storefrontStatus === 'ACTIVE' ? (int) $actor['id'] : null;
+            $vendor = db_exec('INSERT INTO vendors (user_id, name, slug, description, pickup_location, stall_label, prep_minutes, status, approved_at, approved_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())', 'isssssissi', [
+                $userId,
+                $storeName,
+                $slug,
+                $description !== '' ? $description : null,
+                $pickupLocation,
+                $stallLabel !== '' ? $stallLabel : null,
+                $prepMinutes,
+                $storefrontStatus,
+                $approvedAt,
+                $approvedBy,
+            ]);
+            $vendorId = (int) $vendor['insert_id'];
+            $acceptingOrders = $storefrontStatus === 'ACTIVE' ? 1 : 0;
+            $notice = $storefrontStatus === 'PENDING' ? 'Storefront pending administrator activation' : '';
+            db_exec('INSERT INTO vendor_settings (vendor_id, accepting_orders, store_notice, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())', 'iis', [$vendorId, $acceptingOrders, $notice]);
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+
+        try {
+            notify_user($userId, 'Vendor account created', 'An administrator created your account. Storefront status: ' . strtolower($storefrontStatus) . '.', 'vendor.dashboard');
+        } catch (Throwable $notificationError) {
+            app_log($notificationError);
+        }
+        audit_log('Created vendor account', 'vendor', $vendorId, ['store' => $storeName, 'status' => $storefrontStatus]);
+        flash_set('success', 'Vendor account created. Share the initial sign-in details securely and ask the owner to change the password.');
+        redirect('admin.vendors', ['status' => $storefrontStatus]);
+    }
+
     public function vendorAction(): void
     {
         $this->postOnly();
@@ -96,9 +174,9 @@ final class AdminController extends Controller
         $vendor = db_one('SELECT v.id, v.user_id, v.name, v.status, u.status AS owner_status FROM vendors v JOIN users u ON u.id=v.user_id WHERE v.id=?', 'i', [$id]);
         if (!$vendor) $this->pageNotFound();
         $next = $map[$action];
-        if ($action === 'REJECT' && $vendor['status'] !== 'PENDING') throw new InvalidArgumentException('Only pending vendor applications can be rejected.');
+        if ($action === 'REJECT' && $vendor['status'] !== 'PENDING') throw new InvalidArgumentException('Only pending storefronts can be rejected.');
         if ($action === 'SUSPEND' && $vendor['status'] !== 'ACTIVE') throw new InvalidArgumentException('Only active vendors can be suspended.');
-        if ($next === 'ACTIVE' && $vendor['owner_status'] !== 'ACTIVE') throw new InvalidArgumentException('Activate the vendor account before approving or reactivating its storefront.');
+        if ($next === 'ACTIVE' && $vendor['owner_status'] !== 'ACTIVE') throw new InvalidArgumentException('Activate the vendor account before activating or reopening its storefront.');
         db()->begin_transaction();
         try {
             db_exec('UPDATE vendors SET status=?, approved_at=IF(?=\'ACTIVE\', NOW(), approved_at), approved_by=IF(?=\'ACTIVE\', ?, approved_by), updated_at=NOW() WHERE id=?', 'sssii', [$next, $next, $next, (int) $actor['id'], $id]);
@@ -106,7 +184,7 @@ final class AdminController extends Controller
             db()->commit();
         } catch (Throwable $e) { db()->rollback(); throw $e; }
         try {
-            notify_user((int) $vendor['user_id'], 'Vendor application update', 'Your storefront status is now ' . strtolower($next) . '.', 'vendor.dashboard');
+            notify_user((int) $vendor['user_id'], 'Vendor storefront update', 'Your storefront status is now ' . strtolower($next) . '.', 'vendor.dashboard');
         } catch (Throwable $notificationError) {
             app_log($notificationError);
         }

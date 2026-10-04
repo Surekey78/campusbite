@@ -4,7 +4,7 @@ require_once __DIR__ . '/app/Helpers/functions.php';
 require_once __DIR__ . '/app/Validators/InputValidator.php';
 require_once __DIR__ . '/app/Middleware/Auth.php';
 
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://api.fontshare.com; font-src 'self' https://cdn.fontshare.com; connect-src 'self' https://api.fontshare.com https://cdn.fontshare.com; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
 
 $route = trim((string) ($_GET['r'] ?? 'home'));
 if (!preg_match('/^[a-z0-9.]+$/i', $route)) $route = 'not-found';

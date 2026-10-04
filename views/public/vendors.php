@@ -9,4 +9,4 @@
       <p style="margin-bottom:0"><a class="text-link" href="<?= h(app_url('vendor', ['slug' => $vendor['slug']])) ?>">View storefront →</a></p>
     </article>
   <?php endforeach; ?>
-</div><?php else: ?><div class="empty-state"><h2>No active vendors</h2><p>Approved vendors will be listed here.</p><a class="button button-secondary" href="<?= h(app_url('auth.vendor')) ?>">Apply as a vendor</a></div><?php endif; ?>
+</div><?php else: ?><div class="empty-state"><h2>No active vendors</h2><p>Vendor storefronts are created by campus administrators. Check back for newly activated vendors.</p></div><?php endif; ?>
