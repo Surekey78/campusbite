@@ -4,13 +4,17 @@ $currentRoute = (string) ($_GET['r'] ?? 'home');
 $vendorContext = $user && $user['role'] === 'VENDOR' ? current_vendor() : null;
 $unreadCount = 0;
 $cartCount = 0;
+$notificationCursor = 0;
 if ($user) {
     try {
-        $unreadCount = (int) (db_one('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL', 'i', [(int) $user['id']])['n'] ?? 0);
+        $notificationState = db_one('SELECT COALESCE(SUM(read_at IS NULL),0) AS unread_count, COALESCE(MAX(id),0) AS latest_id FROM notifications WHERE user_id=?', 'i', [(int) $user['id']]);
+        $unreadCount = (int) ($notificationState['unread_count'] ?? 0);
+        $notificationCursor = (int) ($notificationState['latest_id'] ?? 0);
         if ($user['role'] === 'STUDENT') $cartCount = (int) (db_one('SELECT COALESCE(SUM(quantity),0) AS n FROM cart_items WHERE user_id=?', 'i', [(int) $user['id']])['n'] ?? 0);
-    } catch (Throwable $e) { $unreadCount = 0; $cartCount = 0; }
+    } catch (Throwable $e) { $unreadCount = 0; $cartCount = 0; $notificationCursor = 0; }
 }
 $workspaceMode = $user && in_array($user['role'], ['STUDENT', 'VENDOR', 'ADMIN'], true);
+$bodyClasses = $workspaceMode ? 'workspace-body' . ($user['role'] === 'STUDENT' ? ' student-workspace-body' : '') : '';
 $workspaceRoleLabel = match ($user['role'] ?? '') {
     'ADMIN' => 'Administrator',
     'VENDOR' => 'Vendor',
@@ -19,7 +23,8 @@ $workspaceRoleLabel = match ($user['role'] ?? '') {
 };
 $userName = trim((string) ($user['full_name'] ?? ''));
 $userFirstName = $userName !== '' ? (explode(' ', $userName)[0] ?? $userName) : 'there';
-$userInitial = strtoupper(substr($userFirstName, 0, 1));
+$userInitial = strtoupper(mb_substr($userFirstName, 0, 1, 'UTF-8'));
+$profileImageUrl = $user && !empty($user['profile_media_id']) ? app_url('media.view', ['id' => (int) $user['profile_media_id']]) : null;
 $nav = [];
 $workspaceNavGroups = [];
 
@@ -82,7 +87,7 @@ if (!$workspaceMode) {
             ['route' => 'admin.users', 'label' => 'Users', 'icon' => 'people', 'active' => ['admin.users', 'admin.user.status']],
         ]],
         ['label' => 'Catalog & community', 'items' => [
-            ['route' => 'admin.foods', 'label' => 'Foods', 'icon' => 'food', 'active' => ['admin.foods', 'admin.food.toggle']],
+            ['route' => 'admin.foods', 'label' => 'Foods', 'icon' => 'food', 'active' => ['admin.foods', 'admin.food.toggle', 'admin.food.feature']],
             ['route' => 'admin.categories', 'label' => 'Categories', 'icon' => 'layers', 'active' => ['admin.categories', 'admin.category.save', 'admin.category.toggle']],
             ['route' => 'admin.inventory', 'label' => 'Inventory', 'icon' => 'box'],
             ['route' => 'admin.reviews', 'label' => 'Reviews', 'icon' => 'star', 'active' => ['admin.reviews', 'admin.review.status']],
@@ -127,7 +132,7 @@ $flashes = flash_take();
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#171e19">
   <title><?= h(($title ?? 'Discover campus food') . ' · ' . site_name()) ?></title>
   <link rel="icon" href="<?= h(APP_BASE) ?>/assets/icons/favicon.svg" type="image/svg+xml">
@@ -138,8 +143,9 @@ $flashes = flash_take();
   <link rel="stylesheet" href="<?= h(APP_BASE) ?>/assets/css/app.css">
   <script src="<?= h(APP_BASE) ?>/assets/js/app.js" defer></script>
 </head>
-<body<?= $workspaceMode ? ' class="workspace-body"' : '' ?>>
+<body<?= $bodyClasses !== '' ? ' class="' . h($bodyClasses) . '"' : '' ?>>
 <a class="skip-link" href="#main-content">Skip to content</a>
+<?php if ($user): ?><div class="live-notification-root" data-live-notifications data-poll-url="<?= h(app_url('notifications.poll')) ?>" data-after-id="<?= (int) $notificationCursor ?>"><div class="live-notification-toasts" data-live-notification-toasts aria-live="polite" aria-atomic="false"></div></div><?php endif; ?>
 <?php if ($workspaceMode): ?>
 <div class="workspace-shell" data-workspace-layout>
   <?php require APP_ROOT . '/views/layouts/sidebar.php'; ?>
@@ -156,16 +162,39 @@ $flashes = flash_take();
         </div>
       </div>
       <div class="workspace-topbar-actions">
-        <a class="workspace-updates" href="<?= h(app_url('notifications')) ?>" aria-label="Notifications<?= $unreadCount ? ', ' . (int) $unreadCount . ' unread' : '' ?>">
+        <a class="workspace-updates" href="<?= h(app_url('notifications')) ?>" aria-label="Notifications<?= $unreadCount ? ', ' . (int) $unreadCount . ' unread' : '' ?>" data-live-unread-link data-live-label="Notifications" data-live-badge-class="workspace-topbar-badge">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
-          <span>Updates</span><?php if ($unreadCount): ?><span class="workspace-topbar-badge"><?= (int) $unreadCount ?></span><?php endif; ?>
+          <span>Updates</span><?php if ($unreadCount): ?><span class="workspace-topbar-badge" data-live-unread-badge aria-hidden="true"><?= (int) $unreadCount ?></span><?php endif; ?>
         </a>
-        <a class="workspace-topbar-account" href="<?= h(app_url('profile')) ?>">
-          <span class="workspace-avatar workspace-avatar-small" aria-hidden="true"><?= h($userInitial) ?></span>
+        <a class="workspace-topbar-account" href="<?= h(app_url('profile')) ?>" aria-label="My profile">
+          <span class="workspace-avatar workspace-avatar-small" aria-hidden="true"><?php if ($profileImageUrl): ?><img src="<?= h($profileImageUrl) ?>" alt=""><?php else: ?><?= h($userInitial) ?><?php endif; ?></span>
           <span class="workspace-topbar-account-label">My profile<small>Profile &amp; contact details</small></span>
         </a>
       </div>
     </header>
+    <?php if ($user['role'] === 'STUDENT'):
+      $studentQuickLinks = [
+        ['key' => 'browse', 'route' => 'foods', 'label' => 'Browse', 'icon' => 'search', 'active' => ['foods', 'food']],
+        ['key' => 'cart', 'route' => 'cart', 'label' => 'Cart', 'icon' => 'cart', 'active' => ['cart', 'cart.add', 'cart.update', 'cart.remove', 'checkout', 'order.place']],
+        ['key' => 'orders', 'route' => 'my.orders', 'label' => 'Orders', 'icon' => 'receipt', 'active' => ['my.orders', 'my.order', 'my.order.cancel']],
+        ['key' => 'updates', 'route' => 'notifications', 'label' => 'Updates', 'icon' => 'bell', 'active' => ['notifications', 'notifications.open', 'notifications.read']],
+      ];
+    ?>
+      <nav class="student-bottom-nav" aria-label="Student quick navigation">
+        <?php foreach ($studentQuickLinks as $quickLink):
+          $quickIsCurrent = in_array($currentRoute, $quickLink['active'], true);
+          $quickBadgeCount = $quickLink['key'] === 'cart' ? $cartCount : ($quickLink['key'] === 'updates' ? $unreadCount : 0);
+          $quickAccessibleLabel = $quickLink['label'];
+          if ($quickBadgeCount > 0) $quickAccessibleLabel .= ', ' . $quickBadgeCount . ($quickLink['key'] === 'cart' ? ($quickBadgeCount === 1 ? ' item in cart' : ' items in cart') : ' unread');
+        ?>
+          <a class="student-bottom-nav-link<?= $quickIsCurrent ? ' is-current' : '' ?>" href="<?= h(app_url($quickLink['route'])) ?>" aria-label="<?= h($quickAccessibleLabel) ?>"<?= $quickLink['key'] === 'updates' ? ' data-live-unread-link data-live-label="Updates" data-live-badge-class="student-bottom-nav-badge"' : '' ?><?= $quickIsCurrent ? ' aria-current="page"' : '' ?>>
+            <span class="student-bottom-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><?= $workspaceIcons[$quickLink['icon']] ?></g></svg></span>
+            <span class="student-bottom-nav-label"><?= h($quickLink['label']) ?></span>
+            <?php if ($quickBadgeCount > 0): ?><span class="student-bottom-nav-badge"<?= $quickLink['key'] === 'updates' ? ' data-live-unread-badge' : '' ?> aria-hidden="true"><?= $quickBadgeCount > 99 ? '99+' : $quickBadgeCount ?></span><?php endif; ?>
+          </a>
+        <?php endforeach; ?>
+      </nav>
+    <?php endif; ?>
     <main class="site-main workspace-site-main" id="main-content">
       <div class="workspace-content">
 <?php else: ?>
@@ -203,11 +232,16 @@ $flashes = flash_take();
 <main class="site-main" id="main-content">
   <div class="container">
 <?php endif; ?>
-    <?php if ($flashes): ?><div class="toast-stack" aria-live="polite">
+    <?php if ($flashes): ?><div class="toast-stack" data-toast-stack aria-live="polite" aria-relevant="additions text" aria-atomic="false">
       <?php foreach ($flashes as $flash):
         $type = in_array($flash['type'], ['success','error','info'], true) ? $flash['type'] : 'info';
         $class = $type === 'error' ? 'alert-error' : ($type === 'success' ? 'alert-success' : 'alert-info');
+        $toastLabel = $type === 'success' ? 'Success' : ($type === 'error' ? 'Action needed' : 'Notice');
       ?>
-        <div class="alert <?= h($class) ?>" role="<?= $type === 'error' ? 'alert' : 'status' ?>"><span aria-hidden="true"><?= $type === 'success' ? '✓' : ($type === 'error' ? '!' : 'i') ?></span><div><?= h($flash['message']) ?></div></div>
+        <section class="system-toast alert <?= h($class) ?>" data-system-toast data-toast-type="<?= h($type) ?>" role="<?= $type === 'error' ? 'alert' : 'status' ?>">
+          <span class="system-toast-icon" aria-hidden="true"><?= $type === 'success' ? '✓' : ($type === 'error' ? '!' : 'i') ?></span>
+          <div class="system-toast-copy"><strong class="system-toast-heading"><?= h($toastLabel) ?></strong><span class="system-toast-message"><?= h($flash['message']) ?></span></div>
+          <button class="system-toast-dismiss" type="button" data-toast-dismiss aria-label="Dismiss message">×</button>
+        </section>
       <?php endforeach; ?>
     </div><?php endif; ?>

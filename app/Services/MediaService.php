@@ -49,13 +49,17 @@ final class MediaService
         return $id;
     }
 
-    public static function stream(int $id): void
+    public static function stream(int $id, bool $privateProfilePhoto = false): void
     {
         $row = db_one('SELECT m.id, m.mime_type, m.file_size, m.file_hash, m.data FROM media m WHERE m.id=? LIMIT 1', 'i', [$id]);
         if (!$row) throw new HttpException(404, 'That image could not be found.');
         header('Content-Type: ' . $row['mime_type']);
         header('Content-Length: ' . (int) $row['file_size']);
-        header('Cache-Control: private, max-age=86400');
+        header($privateProfilePhoto ? 'Cache-Control: private, no-store, max-age=0, must-revalidate' : 'Cache-Control: private, max-age=86400');
+        if ($privateProfilePhoto) {
+            header('Pragma: no-cache');
+            header('Expires: 0');
+        }
         header('ETag: "' . $row['file_hash'] . '"');
         echo $row['data'];
         exit;

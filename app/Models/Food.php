@@ -38,13 +38,29 @@ final class Food
             $sql .= ' AND f.vendor_id = ?';
             $types .= 'i'; $params[] = (int) $filters['vendor'];
         }
+        if (!empty($filters['featured_only'])) $sql .= ' AND f.is_featured=1';
+        if (!empty($filters['sold_only'])) $sql .= ' AND COALESCE(sold.sold_count,0)>0';
+        if (!empty($filters['rated_only'])) $sql .= ' AND COALESCE(rt.rating_count,0)>0';
+        $excludeIds = [];
+        if (isset($filters['exclude_ids']) && is_array($filters['exclude_ids'])) {
+            foreach ($filters['exclude_ids'] as $excludeId) {
+                $excludeId = filter_var($excludeId, FILTER_VALIDATE_INT);
+                if ($excludeId !== false && $excludeId > 0) $excludeIds[] = (int) $excludeId;
+            }
+            $excludeIds = array_values(array_unique($excludeIds));
+            if ($excludeIds) {
+                $sql .= ' AND f.id NOT IN (' . implode(',', array_fill(0, count($excludeIds), '?')) . ')';
+                $types .= str_repeat('i', count($excludeIds));
+                array_push($params, ...$excludeIds);
+            }
+        }
         $sort = $filters['sort'] ?? 'featured';
         $sql .= match ($sort) {
             'price_asc' => ' ORDER BY f.price ASC, f.name ASC',
             'price_desc' => ' ORDER BY f.price DESC, f.name ASC',
-            'rating' => ' ORDER BY average_rating DESC, rating_count DESC, f.name ASC',
-            'popular' => ' ORDER BY sold_count DESC, f.name ASC',
-            default => ' ORDER BY f.is_featured DESC, f.name ASC',
+            'rating' => ' ORDER BY average_rating DESC, rating_count DESC, sold_count DESC, f.name ASC',
+            'popular' => ' ORDER BY sold_count DESC, average_rating DESC, f.name ASC',
+            default => ' ORDER BY f.is_featured DESC, sold_count DESC, average_rating DESC, rating_count DESC, f.name ASC',
         };
         $sql .= ' LIMIT ? OFFSET ?';
         $types .= 'ii';

@@ -16,12 +16,12 @@
         <?= !empty($food['rating_count']) ? '★ ' . h(number_format((float) $food['average_rating'], 1)) . ' <span class="rating-count">(' . (int) $food['rating_count'] . ')</span>' : '<span class="rating-count">New</span>' ?>
       </span>
     </div>
-    <div class="food-meta"><span class="availability<?= empty($food['accepting_orders']) ? ' is-unavailable' : '' ?>"><?= empty($food['accepting_orders']) ? 'Orders paused' : 'Available to order' ?></span><span><?= h($food['category_name'] ?? 'Campus food') ?></span></div>
+    <div class="food-meta food-meta-availability"><span class="availability<?= empty($food['accepting_orders']) ? ' is-unavailable' : '' ?>"><?= empty($food['accepting_orders']) ? 'Orders paused' : 'Available to order' ?></span><span><?= h($food['category_name'] ?? 'Campus food') ?></span></div>
     <div class="food-actions">
       <a class="button button-secondary button-small" href="<?= h(app_url('food', ['id' => (int) $food['id']])) ?>">View</a>
       <?php if (!empty($food['accepting_orders']) && $foodUser && $foodUser['role'] === 'STUDENT'): ?>
         <form method="post" action="<?= h(app_url('cart.add')) ?>">
-          <?= csrf_field() ?><input type="hidden" name="food_id" value="<?= (int) $food['id'] ?>"><input type="hidden" name="quantity" value="1"><input type="hidden" name="return_to" value="foods">
+          <?= csrf_field() ?><input type="hidden" name="food_id" value="<?= (int) $food['id'] ?>"><input type="hidden" name="quantity" value="1"><input type="hidden" name="return_to" value="<?= isset($currentRoute) && $currentRoute === 'home' ? 'home' : 'foods' ?>">
           <button class="button button-small" type="submit" aria-label="Add <?= h($food['name']) ?> to cart">Add to cart</button>
         </form>
       <?php elseif (!empty($food['accepting_orders']) && !$foodUser): ?>

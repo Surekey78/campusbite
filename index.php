@@ -21,7 +21,7 @@ try {
         }
     }
 
-    if ($method === 'GET' && $route !== 'media.view' && $route !== 'notifications.open') {
+    if ($method === 'GET' && $route !== 'media.view' && $route !== 'notifications.open' && $route !== 'notifications.poll') {
         $allowedParams = ['id', 'slug', 'item_id', 'page', 'q', 'category', 'vendor', 'sort', 'status', 'start', 'end', 'role'];
         $backParams = [];
         foreach ($allowedParams as $key) {

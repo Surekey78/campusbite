@@ -40,8 +40,10 @@ final class StudentController extends Controller
         if ($newQuantity > 99 || $newQuantity > (float) $food['stock']) throw new InvalidArgumentException('There is not enough stock for that quantity. Available now: ' . (int) $food['stock'] . '.');
         db_exec('INSERT INTO cart_items (user_id, food_id, quantity, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW()) ON DUPLICATE KEY UPDATE quantity=?, updated_at=NOW()', 'iiii', [(int) $user['id'], $foodId, $newQuantity, $newQuantity]);
         flash_set('success', $food['name'] . ' added to your cart.');
-        $return = (string) ($_POST['return_to'] ?? 'foods');
+        $return = $_POST['return_to'] ?? 'foods';
+        if (!is_string($return)) $return = 'foods';
         if ($return === 'food') redirect('food', ['id' => $foodId]);
+        if ($return === 'home') redirect('home');
         redirect('foods');
     }
 
@@ -55,7 +57,7 @@ final class StudentController extends Controller
         if (!$item) throw new HttpException(404, 'That cart item is no longer there.');
         if ($quantity > (float) $item['stock']) throw new InvalidArgumentException('Only ' . (int) $item['stock'] . ' are currently available.');
         db_exec('UPDATE cart_items SET quantity=?, updated_at=NOW() WHERE id=? AND user_id=?', 'iii', [$quantity, (int) $item['id'], (int) $user['id']]);
-        flash_set('success', 'Cart quantity updated.');
+        flash_set('success', $item['name'] . ' quantity was updated to ' . $quantity . '.');
         redirect('cart');
     }
 
@@ -64,8 +66,10 @@ final class StudentController extends Controller
         $user = $this->student('cart.manage');
         $this->postOnly();
         $foodId = $this->positiveId($_POST['food_id'] ?? null, 'Food');
+        $item = db_one('SELECT f.name FROM cart_items ci JOIN foods f ON f.id=ci.food_id WHERE ci.user_id=? AND ci.food_id=?', 'ii', [(int) $user['id'], $foodId]);
+        if (!$item) throw new HttpException(404, 'That cart item is no longer there.');
         db_exec('DELETE FROM cart_items WHERE user_id=? AND food_id=?', 'ii', [(int) $user['id'], $foodId]);
-        flash_set('success', 'Food removed from your cart.');
+        flash_set('success', $item['name'] . ' was removed from your cart.');
         redirect('cart');
     }
 
@@ -133,7 +137,7 @@ final class StudentController extends Controller
         $order = db_one('SELECT * FROM orders WHERE id=? AND user_id=? LIMIT 1', 'ii', [$id, (int) $user['id']]);
         if (!$order) $this->pageNotFound();
         OrderService::transition($id, 'CANCELLED', (int) $user['id'], 'STUDENT', null, 0, 'Cancelled by student');
-        flash_set('success', 'Order cancelled. Reserved stock was returned to the vendor.');
+        flash_set('success', 'Order ' . $order['order_number'] . ' was cancelled. Reserved stock was returned to the vendor.');
         redirect('my.order', ['id' => $id]);
     }
 
@@ -164,16 +168,23 @@ final class StudentController extends Controller
         $user = $this->student('review.create');
         $rating = InputValidator::positiveInt($_POST['rating'] ?? null, 'Rating', 1, 5);
         $comment = InputValidator::text($_POST['comment'] ?? '', 1000, 'Review', false);
-        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        $reviewIdInput = $_POST['review_id'] ?? $_GET['review_id'] ?? null;
+        if (!is_scalar($reviewIdInput) && $reviewIdInput !== null) throw new InvalidArgumentException('Choose a valid review.');
+        $reviewId = $reviewIdInput === null || trim((string) $reviewIdInput) === '' ? 0 : $this->positiveId($reviewIdInput, 'Review');
         if ($reviewId > 0) {
-            $review = db_one("SELECT r.*, o.status AS order_status FROM reviews r JOIN orders o ON o.id=r.order_id WHERE r.id=? AND r.user_id=?", 'ii', [$reviewId, (int) $user['id']]);
+            $review = db_one("SELECT r.*, o.status AS order_status, f.name AS food_name FROM reviews r JOIN orders o ON o.id=r.order_id JOIN foods f ON f.id=r.food_id WHERE r.id=? AND r.user_id=?", 'ii', [$reviewId, (int) $user['id']]);
             if (!$review || $review['order_status'] !== 'COMPLETED') throw new HttpException(403, 'That review cannot be edited.');
             db_exec('UPDATE reviews SET rating=?, comment=?, updated_at=NOW() WHERE id=? AND user_id=?', 'isii', [$rating, $comment ?: null, $reviewId, (int) $user['id']]);
             audit_log('Edited review', 'review', $reviewId);
-            flash_set('success', 'Your review was updated.');
+            flash_set('success', 'Your review for ' . $review['food_name'] . ' was updated.');
             redirect('my.order', ['id' => (int) $review['order_id']]);
         }
-        $itemId = $this->positiveId($_POST['order_item_id'] ?? null, 'Order item');
+        $itemIdInput = $_POST['order_item_id'] ?? null;
+        if ($itemIdInput === null || (is_string($itemIdInput) && trim($itemIdInput) === '')) $itemIdInput = $_GET['item_id'] ?? null;
+        if (!is_scalar($itemIdInput) || trim((string) $itemIdInput) === '') {
+            throw new InvalidArgumentException('This review form is missing the purchased-food reference. Return to your completed order and choose “Rate this food” again.');
+        }
+        $itemId = $this->positiveId($itemIdInput, 'Order item');
         $item = db_one("SELECT oi.id, oi.food_id, oi.order_id, o.order_number FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE oi.id=? AND o.user_id=? AND o.source='STUDENT' AND o.status='COMPLETED'", 'ii', [$itemId, (int) $user['id']]);
         if (!$item) throw new HttpException(403, 'You can review this food after a completed campus pickup.');
         if (db_one('SELECT id FROM reviews WHERE order_item_id=?', 'i', [$itemId])) throw new InvalidArgumentException('This purchase already has a review. You can edit your existing review instead.');

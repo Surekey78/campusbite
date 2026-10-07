@@ -11,6 +11,15 @@
     });
   }
 
+  const profilePictureInput = document.querySelector('[data-profile-picture-input]');
+  const removeProfilePicture = document.querySelector('[data-remove-profile-picture]');
+  profilePictureInput?.addEventListener('change', () => {
+    if (profilePictureInput.files?.length && removeProfilePicture) removeProfilePicture.checked = false;
+  });
+  removeProfilePicture?.addEventListener('change', () => {
+    if (removeProfilePicture.checked && profilePictureInput) profilePictureInput.value = '';
+  });
+
   const workspace = document.querySelector('[data-workspace-layout]');
   if (workspace) {
     const sidebarToggle = workspace.querySelector('[data-sidebar-toggle]');
@@ -78,6 +87,151 @@
     });
   });
 
+  document.querySelectorAll('[data-system-toast]').forEach((toast) => {
+    const dismissButton = toast.querySelector('[data-toast-dismiss]');
+    let timer = null;
+    const dismissToast = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      toast.remove();
+    };
+    dismissButton?.addEventListener('click', dismissToast);
+    if (toast.dataset.toastType === 'error') return;
+    timer = window.setTimeout(dismissToast, toast.dataset.toastType === 'info' ? 8500 : 7000);
+    const keepVisible = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
+    };
+    toast.addEventListener('mouseenter', keepVisible, { once: true });
+    toast.addEventListener('focusin', keepVisible, { once: true });
+  });
+
+  const liveNotificationRoot = document.querySelector('[data-live-notifications]');
+  if (liveNotificationRoot && typeof window.fetch === 'function') {
+    const pollUrl = liveNotificationRoot.dataset.pollUrl || '';
+    const toastStack = liveNotificationRoot.querySelector('[data-live-notification-toasts]');
+    const validBadgeClasses = new Set(['workspace-nav-badge', 'workspace-topbar-badge', 'student-bottom-nav-badge']);
+    let cursor = Number.parseInt(liveNotificationRoot.dataset.afterId || '0', 10);
+    if (!Number.isFinite(cursor) || cursor < 0) cursor = 0;
+    let pollTimer = null;
+    let requestInFlight = false;
+    let pollingStopped = false;
+
+    const setUnreadCount = (rawCount) => {
+      const count = Math.max(0, Math.trunc(Number(rawCount) || 0));
+      document.querySelectorAll('[data-live-unread-link]').forEach((link) => {
+        const label = link.dataset.liveLabel || 'Notifications';
+        const badgeClass = link.dataset.liveBadgeClass || '';
+        let badge = link.querySelector('[data-live-unread-badge]');
+        if (count > 0 && !badge && validBadgeClasses.has(badgeClass)) {
+          badge = document.createElement('span');
+          badge.className = badgeClass;
+          badge.dataset.liveUnreadBadge = '';
+          badge.setAttribute('aria-hidden', 'true');
+          link.appendChild(badge);
+        }
+        if (count > 0 && badge) {
+          badge.textContent = count > 99 ? '99+' : String(count);
+          link.setAttribute('aria-label', label + ', ' + count + (count === 1 ? ' unread notification' : ' unread notifications'));
+        } else {
+          badge?.remove();
+          link.setAttribute('aria-label', label);
+        }
+      });
+    };
+
+    const showLiveToast = (item) => {
+      if (!toastStack || !item || typeof item.title !== 'string' || typeof item.body !== 'string') return;
+      let target;
+      try {
+        target = new URL(String(item.open_url || ''), window.location.href);
+      } catch (_error) {
+        return;
+      }
+      if (target.origin !== window.location.origin) return;
+
+      const toast = document.createElement('article');
+      toast.className = 'live-notification-toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      const link = document.createElement('a');
+      link.className = 'live-notification-link';
+      link.href = target.href;
+      const kicker = document.createElement('span');
+      kicker.className = 'live-notification-kicker';
+      kicker.textContent = 'New CampusBite update';
+      const title = document.createElement('strong');
+      title.textContent = item.title;
+      const body = document.createElement('span');
+      body.className = 'live-notification-body';
+      body.textContent = item.body;
+      link.append(kicker, title, body);
+      const dismiss = document.createElement('button');
+      dismiss.className = 'live-notification-dismiss';
+      dismiss.type = 'button';
+      dismiss.setAttribute('aria-label', 'Dismiss update');
+      dismiss.textContent = '×';
+      dismiss.addEventListener('click', () => toast.remove());
+      toast.append(link, dismiss);
+      toastStack.prepend(toast);
+      while (toastStack.children.length > 3) toastStack.lastElementChild?.remove();
+      const timer = window.setTimeout(() => toast.remove(), 12000);
+      toast.addEventListener('mouseenter', () => window.clearTimeout(timer), { once: true });
+      toast.addEventListener('focusin', () => window.clearTimeout(timer), { once: true });
+    };
+
+    const schedulePoll = (delay) => {
+      if (pollTimer !== null) window.clearTimeout(pollTimer);
+      if (!pollingStopped) pollTimer = window.setTimeout(pollNotifications, delay);
+    };
+
+    const pollNotifications = async () => {
+      pollTimer = null;
+      if (pollingStopped || requestInFlight) return;
+      if (document.visibilityState !== 'visible') {
+        schedulePoll(30000);
+        return;
+      }
+      requestInFlight = true;
+      try {
+        const url = new URL(pollUrl, window.location.href);
+        url.searchParams.set('after', String(cursor));
+        const response = await window.fetch(url.href, {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        });
+        if (response.status === 401) {
+          pollingStopped = true;
+          return;
+        }
+        if (!response.ok) throw new Error('Notification check failed.');
+        const payload = await response.json();
+        if (!payload || payload.ok !== true) throw new Error('Invalid notification response.');
+        setUnreadCount(payload.unread_count);
+        if (Array.isArray(payload.notifications)) {
+          payload.notifications.forEach((item) => {
+            const id = Number(item.id);
+            if (!Number.isSafeInteger(id) || id <= cursor) return;
+            cursor = id;
+            liveNotificationRoot.dataset.afterId = String(cursor);
+            showLiveToast(item);
+          });
+        }
+      } catch (_error) {
+        // Keep the page usable offline; the next poll retries without interrupting the user.
+      } finally {
+        requestInFlight = false;
+        if (!pollingStopped) schedulePoll(document.visibilityState === 'visible' ? 12000 : 30000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') schedulePoll(0);
+    });
+    schedulePoll(0);
+  }
+
   const pos = document.querySelector('[data-pos-app]');
   if (pos) {
     const form = pos.querySelector('[data-pos-form]');
@@ -117,7 +271,7 @@
         return;
       }
       if (current) current.quantity += 1;
-      else items.set(id, { id, name: button.dataset.name || 'Food', price: Number(button.dataset.price), stock, unit: button.dataset.unit || 'servings', quantity: 1 });
+      else items.set(id, { id, name: button.dataset.name || 'Food', price: Number(button.dataset.price), stock, unit: button.dataset.unit || 'servings', image: button.dataset.image || '', quantity: 1 });
       message((button.dataset.name || 'Food') + ' added to the sale.');
       draw();
     };
@@ -142,12 +296,33 @@
       items.forEach((item) => {
         const row = document.createElement('div');
         row.className = 'pos-cart-row';
+        const product = document.createElement('div');
+        product.className = 'pos-cart-product';
+        const thumbnail = document.createElement('span');
+        thumbnail.className = 'pos-cart-image';
+        thumbnail.setAttribute('aria-hidden', 'true');
+        if (item.image) {
+          const photo = document.createElement('img');
+          photo.alt = '';
+          photo.loading = 'eager';
+          photo.decoding = 'async';
+          photo.addEventListener('error', () => {
+            photo.remove();
+            thumbnail.textContent = '🍽';
+          }, { once: true });
+          photo.src = item.image;
+          thumbnail.appendChild(photo);
+        } else {
+          thumbnail.textContent = '🍽';
+        }
         const details = document.createElement('div');
+        details.className = 'pos-cart-details';
         const name = document.createElement('strong');
         name.textContent = item.name;
         const price = document.createElement('small');
         price.textContent = currency.format(item.price) + ' each';
         details.append(name, price);
+        product.append(thumbnail, details);
         const controls = document.createElement('div');
         controls.className = 'pos-qty';
         const minus = document.createElement('button');
@@ -158,7 +333,7 @@
         plus.type = 'button'; plus.className = 'button button-secondary button-small'; plus.setAttribute('aria-label', 'Add one ' + item.name); plus.textContent = '+';
         plus.addEventListener('click', () => changeQuantity(item.id, 1));
         controls.append(minus, count, plus);
-        row.append(details, controls);
+        row.append(product, controls);
         cart.appendChild(row);
       });
       form.querySelectorAll('input[data-pos-hidden]').forEach((el) => el.remove());

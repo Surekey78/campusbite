@@ -1,10 +1,12 @@
 <section class="form-card narrow" aria-labelledby="review-title">
+  <?php $reviewItemId = (int) ($item['id'] ?? 0); $reviewSaveParams = ['item_id' => $reviewItemId]; if (!empty($review)) $reviewSaveParams['review_id'] = (int) $review['id']; ?>
   <p class="eyebrow">Completed pickup · <?= h($item['order_number']) ?></p>
   <h1 id="review-title"><?= !empty($review) ? 'Edit your review' : 'Review ' . h($item['food_name']) ?></h1>
   <p>Your rating helps students choose and gives vendors useful feedback.</p>
-  <form method="post" action="<?= h(app_url('reviews.save')) ?>" class="stack" data-submit-feedback>
+  <form method="post" action="<?= h(app_url('reviews.save', $reviewSaveParams)) ?>" class="stack" data-submit-feedback>
     <?= csrf_field() ?>
-    <?php if (!empty($review)): ?><input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>"><?php else: ?><input type="hidden" name="order_item_id" value="<?= (int) $item['id'] ?>"><?php endif; ?>
+    <input type="hidden" name="order_item_id" value="<?= $reviewItemId ?>">
+    <?php if (!empty($review)): ?><input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>"><?php endif; ?>
     <fieldset class="rating-field"><legend class="field-label">Rating <span class="required">*</span></legend><div class="rating-options">
       <?php for ($star=5; $star>=1; $star--): ?><label><input type="radio" name="rating" value="<?= $star ?>"<?= (int) ($review['rating'] ?? 5) === $star ? ' checked' : '' ?> required><span aria-hidden="true"><?= str_repeat('★', $star) ?></span><span class="sr-only"><?= $star ?> <?= $star === 1 ? 'star' : 'stars' ?></span></label><?php endfor; ?>
     </div></fieldset>

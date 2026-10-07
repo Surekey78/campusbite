@@ -6,9 +6,11 @@ final class BrowseController extends Controller
 {
     public function home(): void
     {
-        $featured = Food::search(['sort' => 'featured'], 4, 0);
-        $popular = Food::search(['sort' => 'popular'], 4, 0);
-        $topRated = Food::search(['sort' => 'rating'], 4, 0);
+        $featured = Food::search(['sort' => 'featured', 'featured_only' => true], 3, 0);
+        $shownIds = array_map('intval', array_column($featured, 'id'));
+        $popular = Food::search(['sort' => 'popular', 'sold_only' => true, 'exclude_ids' => $shownIds], 3, 0);
+        $shownIds = array_values(array_merge($shownIds, array_map('intval', array_column($popular, 'id'))));
+        $topRated = Food::search(['sort' => 'rating', 'rated_only' => true, 'exclude_ids' => $shownIds], 3, 0);
         $categories = db_all("SELECT c.*, (SELECT COUNT(*) FROM foods f JOIN vendors v ON v.id=f.vendor_id JOIN inventory i ON i.food_id=f.id AND i.quantity>=1 WHERE f.category_id=c.id AND f.is_available=1 AND v.status='ACTIVE') AS food_count FROM food_categories c WHERE c.is_active=1 AND c.vendor_id IS NULL ORDER BY c.sort_order, c.name LIMIT 8");
         $vendors = db_all("SELECT v.*, COALESCE(vs.accepting_orders,0) AS accepting_orders, (SELECT COUNT(*) FROM foods f JOIN inventory i ON i.food_id=f.id AND i.quantity>=1 WHERE f.vendor_id=v.id AND f.is_available=1) AS food_count FROM vendors v LEFT JOIN vendor_settings vs ON vs.vendor_id=v.id WHERE v.status='ACTIVE' ORDER BY v.name LIMIT 4");
         $hero = db_one("SELECT * FROM cms_content WHERE content_key='home.hero.title' AND is_published=1");

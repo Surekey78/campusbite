@@ -42,7 +42,7 @@ final class AdminController extends Controller
         if ($q !== '') { $where .= ' AND (u.full_name LIKE ? OR u.email LIKE ?)'; $types .= 'ss'; $term = '%' . $q . '%'; array_push($params, $term, $term); }
         if ($role !== '') { $where .= ' AND r.name=?'; $types .= 's'; $params[] = $role; }
         if ($status !== '') { $where .= ' AND u.status=?'; $types .= 's'; $params[] = $status; }
-        $users = db_all('SELECT u.id, u.full_name, u.email, u.phone, u.status, u.created_at, r.name AS role FROM users u JOIN roles r ON r.id=u.role_id' . $where . ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?', $types . 'ii', array_merge($params, [$limit, $offset]));
+        $users = db_all('SELECT u.id, u.full_name, u.email, u.phone, u.status, u.created_at, r.name AS role, upp.media_id AS profile_media_id FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN user_profile_photos upp ON upp.user_id=u.id' . $where . ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?', $types . 'ii', array_merge($params, [$limit, $offset]));
         $count = db_one('SELECT COUNT(*) AS n FROM users u JOIN roles r ON r.id=u.role_id' . $where, $types, $params);
         $total = (int) ($count['n'] ?? 0);
         $this->view('admin/users', compact('users', 'q', 'role', 'status', 'page', 'limit', 'total') + ['title' => 'Users']);
@@ -159,7 +159,7 @@ final class AdminController extends Controller
             app_log($notificationError);
         }
         audit_log('Created vendor account', 'vendor', $vendorId, ['store' => $storeName, 'status' => $storefrontStatus]);
-        flash_set('success', 'Vendor account created. Share the initial sign-in details securely and ask the owner to change the password.');
+        flash_set('success', $storeName . ' vendor account was created for ' . $ownerName . '. Share the initial sign-in details securely and ask the owner to change the password.');
         redirect('admin.vendors', ['status' => $storefrontStatus]);
     }
 
@@ -213,7 +213,29 @@ final class AdminController extends Controller
         $next = (int) !$food['is_available'];
         db_exec('UPDATE foods SET is_available=?, updated_at=NOW() WHERE id=?', 'ii', [$next, $id]);
         audit_log($next ? 'Admin relisted food' : 'Admin unlisted food', 'food', $id);
-        flash_set('success', $food['name'] . ($next ? ' is listed.' : ' was unlisted.'));
+        flash_set('success', $food['name'] . ($next ? ' is now listed in the foods catalog.' : ' was removed from the foods catalog.'));
+        redirect('admin.foods');
+    }
+
+    public function foodFeatureToggle(): void
+    {
+        $this->postOnly();
+        $this->admin('food.update');
+        $id = $this->positiveId($_POST['id'] ?? null, 'Food');
+        $db = db();
+        $db->begin_transaction();
+        try {
+            $food = db_one('SELECT id, name, is_featured FROM foods WHERE id=? FOR UPDATE', 'i', [$id]);
+            if (!$food) $this->pageNotFound();
+            $next = (int) !$food['is_featured'];
+            db_exec('UPDATE foods SET is_featured=?, updated_at=NOW() WHERE id=?', 'ii', [$next, $id]);
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+        audit_log($next ? 'Featured food' : 'Removed food feature', 'food', $id, ['name' => $food['name']]);
+        flash_set('success', $food['name'] . ($next ? ' is marked as a homepage feature.' : ' was removed from homepage features.'));
         redirect('admin.foods');
     }
 
@@ -264,10 +286,16 @@ final class AdminController extends Controller
         $actor = $this->admin('orders.manage_all');
         $id = $this->positiveId($_POST['order_id'] ?? null, 'Order');
         $status = strtoupper((string) ($_POST['status'] ?? ''));
-        $cash = $_POST['cash_received'] ?? 0;
-        if (!is_numeric($cash) || (float) $cash < 0) throw new InvalidArgumentException('Enter a valid cash amount.');
-        OrderService::transition($id, $status, (int) $actor['id'], 'ADMIN', null, (float) $cash, InputValidator::text($_POST['note'] ?? 'Administrator update', 240, 'Note', false));
-        flash_set('success', 'Order updated.');
+        $cash = 0.0;
+        if ($status === 'COMPLETED') {
+            $cashInput = $_POST['cash_received'] ?? null;
+            if (!is_scalar($cashInput) || !is_numeric($cashInput) || (float) $cashInput < 0 || (float) $cashInput > 1000000) throw new InvalidArgumentException('Enter a valid cash amount when completing the order.');
+            $cash = (float) $cashInput;
+        }
+        OrderService::transition($id, $status, (int) $actor['id'], 'ADMIN', null, $cash, InputValidator::text($_POST['note'] ?? 'Administrator update', 240, 'Note', false));
+        $order = db_one('SELECT order_number FROM orders WHERE id=?', 'i', [$id]);
+        $orderNumber = $order['order_number'] ?? ('#' . $id);
+        flash_set('success', 'Order ' . $orderNumber . ' status updated to ' . status_label($status) . '.');
         redirect('admin.orders');
     }
 
@@ -296,12 +324,12 @@ final class AdminController extends Controller
         $id = $this->positiveId($_POST['id'] ?? null, 'Review');
         $status = strtoupper((string) ($_POST['status'] ?? ''));
         if (!in_array($status, ['PUBLISHED', 'PENDING', 'HIDDEN'], true)) throw new InvalidArgumentException('Choose a valid review status.');
-        $review = db_one('SELECT id, status FROM reviews WHERE id=?', 'i', [$id]);
+        $review = db_one('SELECT r.id, r.status, f.name AS food_name FROM reviews r JOIN foods f ON f.id=r.food_id WHERE r.id=?', 'i', [$id]);
         if (!$review) $this->pageNotFound();
         db_exec('UPDATE reviews SET status=?, updated_at=NOW() WHERE id=?', 'si', [$status, $id]);
         db_exec("UPDATE review_reports SET status='RESOLVED' WHERE review_id=? AND status='OPEN'", 'i', [$id]);
         audit_log('Moderated review', 'review', $id, ['from' => $review['status'], 'to' => $status]);
-        flash_set('success', 'Review moderation saved.');
+        flash_set('success', 'Review for ' . $review['food_name'] . ' was set to ' . strtolower(status_label($status)) . '.');
         redirect('admin.reviews');
     }
 
@@ -322,7 +350,7 @@ final class AdminController extends Controller
         $slug = slugify($name) . '-' . strtolower(bin2hex(random_bytes(2)));
         $result = db_exec('INSERT INTO food_categories (vendor_id, name, slug, description, sort_order, is_active, created_at, updated_at) VALUES (NULL, ?, ?, ?, 50, 1, NOW(), NOW())', 'sss', [$name, $slug, $description ?: null]);
         audit_log('Created global food category', 'category', (int) $result['insert_id'], ['name' => $name]);
-        flash_set('success', 'Category added.');
+        flash_set('success', $name . ' was added as a campus-wide food category.');
         redirect('admin.categories');
     }
 
@@ -345,7 +373,7 @@ final class AdminController extends Controller
             $db->commit();
         } catch (Throwable $e) { $db->rollback(); throw $e; }
         audit_log($next ? 'Activated category' : 'Deactivated category', 'category', $id);
-        flash_set('success', 'Category updated.');
+        flash_set('success', $category['name'] . ($next ? ' was activated.' : ' was deactivated.'));
         redirect('admin.categories');
     }
 
@@ -392,7 +420,7 @@ final class AdminController extends Controller
         $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 80, 'UTF-8');
         $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = 24; $offset = ($page - 1) * $limit;
         $sql = 'SELECT m.id, m.original_name, m.stored_name, m.mime_type, m.extension, m.file_size, m.file_hash, m.uploaded_by, m.created_at, u.full_name AS uploader,
-            ((SELECT COUNT(*) FROM foods f WHERE f.media_id=m.id)+(SELECT COUNT(*) FROM vendors v WHERE v.logo_media_id=m.id)+(SELECT COUNT(*) FROM cms_content c WHERE c.image_media_id=m.id)) AS usage_count FROM media m LEFT JOIN users u ON u.id=m.uploaded_by';
+            ((SELECT COUNT(*) FROM foods f WHERE f.media_id=m.id)+(SELECT COUNT(*) FROM vendors v WHERE v.logo_media_id=m.id)+(SELECT COUNT(*) FROM cms_content c WHERE c.image_media_id=m.id)+(SELECT COUNT(*) FROM user_profile_photos p WHERE p.media_id=m.id)) AS usage_count FROM media m LEFT JOIN users u ON u.id=m.uploaded_by';
         if ($q !== '') {
             $term = '%' . $q . '%';
             $media = db_all($sql . ' WHERE m.original_name LIKE ? OR m.mime_type LIKE ? ORDER BY m.created_at DESC LIMIT ? OFFSET ?', 'ssii', [$term, $term, $limit, $offset]);
@@ -424,13 +452,13 @@ final class AdminController extends Controller
         try {
             $item = db_one('SELECT id, original_name FROM media WHERE id=? FOR UPDATE', 'i', [$id]);
             if (!$item) $this->pageNotFound();
-            $usage = db_one('SELECT (SELECT COUNT(*) FROM foods WHERE media_id=?)+(SELECT COUNT(*) FROM vendors WHERE logo_media_id=?)+(SELECT COUNT(*) FROM cms_content WHERE image_media_id=?) AS n', 'iii', [$id, $id, $id]);
-            if ((int) $usage['n'] > 0) throw new InvalidArgumentException('This image is still used by ' . (int) $usage['n'] . ' item(s). Remove those references before deleting it.');
+            $usage = db_one('SELECT (SELECT COUNT(*) FROM foods WHERE media_id=?)+(SELECT COUNT(*) FROM vendors WHERE logo_media_id=?)+(SELECT COUNT(*) FROM cms_content WHERE image_media_id=?)+(SELECT COUNT(*) FROM user_profile_photos WHERE media_id=?) AS n', 'iiii', [$id, $id, $id, $id]);
+            if ((int) $usage['n'] > 0) throw new InvalidArgumentException('This image is still in use in ' . (int) $usage['n'] . ' place(s). Remove those references before deleting it.');
             db_exec('DELETE FROM media WHERE id=?', 'i', [$id]);
             $db->commit();
         } catch (Throwable $e) { $db->rollback(); throw $e; }
         audit_log('Deleted media', 'media', $id, ['name' => $item['original_name']]);
-        flash_set('success', 'Media item deleted.');
+        flash_set('success', $item['original_name'] . ' was deleted from the media library.');
         redirect('admin.media');
     }
 

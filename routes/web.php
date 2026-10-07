@@ -43,6 +43,7 @@ return [
     'profile' => [AccountController::class, 'profile'],
     'profile.save' => [AccountController::class, 'profileSave'],
     'notifications' => [NotificationController::class, 'index'],
+    'notifications.poll' => [NotificationController::class, 'poll'],
     'notifications.read' => [NotificationController::class, 'read'],
     'notifications.open' => [NotificationController::class, 'open'],
 
@@ -76,6 +77,7 @@ return [
     'admin.foods' => [AdminController::class, 'foods'],
     'admin.inventory' => [AdminController::class, 'inventory'],
     'admin.food.toggle' => [AdminController::class, 'foodToggle'],
+    'admin.food.feature' => [AdminController::class, 'foodFeatureToggle'],
     'admin.orders' => [AdminController::class, 'orders'],
     'admin.order.status' => [AdminController::class, 'orderStatus'],
     'admin.reviews' => [AdminController::class, 'reviews'],

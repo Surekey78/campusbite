@@ -115,7 +115,7 @@ function current_user(): ?array
     if ($id < 1) {
         return null;
     }
-    $user = db_one('SELECT u.id, u.role_id, u.full_name, u.email, u.phone, u.status, r.name AS role, u.created_at FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ? LIMIT 1', 'i', [$id]);
+    $user = db_one('SELECT u.id, u.role_id, u.full_name, u.email, u.phone, u.status, r.name AS role, u.created_at, upp.media_id AS profile_media_id FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN user_profile_photos upp ON upp.user_id=u.id WHERE u.id = ? LIMIT 1', 'i', [$id]);
     if (!$user || $user['status'] !== 'ACTIVE') {
         $user = null;
         unset($_SESSION['user_id']);

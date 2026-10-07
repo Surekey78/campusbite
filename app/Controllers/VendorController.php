@@ -60,11 +60,17 @@ final class VendorController extends Controller
         [$user, $vendor] = $this->vendor('order.manage');
         $id = $this->positiveId($_POST['order_id'] ?? null, 'Order');
         $newStatus = strtoupper((string) ($_POST['status'] ?? ''));
-        $cash = $_POST['cash_received'] ?? 0;
-        if (!is_numeric($cash) || (float) $cash < 0 || (float) $cash > 1000000) throw new InvalidArgumentException('Enter a valid cash amount.');
+        $cash = 0.0;
+        if ($newStatus === 'COMPLETED') {
+            $cashInput = $_POST['cash_received'] ?? null;
+            if (!is_scalar($cashInput) || !is_numeric($cashInput) || (float) $cashInput < 0 || (float) $cashInput > 1000000) throw new InvalidArgumentException('Enter a valid cash amount when completing the order.');
+            $cash = (float) $cashInput;
+        }
         $note = InputValidator::text($_POST['note'] ?? '', 240, 'Note', false);
-        OrderService::transition($id, $newStatus, (int) $user['id'], 'VENDOR', (int) $vendor['id'], (float) $cash, $note);
-        flash_set('success', 'Order status updated to ' . status_label($newStatus) . '.');
+        OrderService::transition($id, $newStatus, (int) $user['id'], 'VENDOR', (int) $vendor['id'], $cash, $note);
+        $order = db_one('SELECT order_number FROM orders WHERE id=? AND vendor_id=?', 'ii', [$id, (int) $vendor['id']]);
+        $orderNumber = $order['order_number'] ?? ('#' . $id);
+        flash_set('success', 'Order ' . $orderNumber . ' status updated to ' . status_label($newStatus) . '.');
         redirect('vendor.orders');
     }
 
@@ -134,7 +140,7 @@ final class VendorController extends Controller
             $db->rollback();
             throw $e;
         }
-        flash_set('success', 'Food saved.');
+        flash_set('success', $name . ' was saved.');
         redirect('vendor.products');
     }
 
@@ -172,13 +178,13 @@ final class VendorController extends Controller
             if (db_one('SELECT id FROM food_categories WHERE vendor_id=? AND name=? AND id<>?', 'isi', [(int) $vendor['id'], $name, $id])) throw new InvalidArgumentException('You already have a category with that name.');
             db_exec('UPDATE food_categories SET name=?, description=?, updated_at=NOW() WHERE id=? AND vendor_id=?', 'ssii', [$name, $description, $id, (int) $vendor['id']]);
             audit_log('Updated food category', 'category', $id, ['name' => $name]);
-            flash_set('success', 'Category updated.');
+            flash_set('success', $name . ' was updated.');
         } else {
             if (db_one('SELECT id FROM food_categories WHERE vendor_id=? AND name=?', 'is', [(int) $vendor['id'], $name])) throw new InvalidArgumentException('You already have a category with that name.');
             $slug = slugify($name) . '-' . strtolower(bin2hex(random_bytes(2)));
             $result = db_exec('INSERT INTO food_categories (vendor_id, name, slug, description, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, 50, 1, NOW(), NOW())', 'isss', [(int) $vendor['id'], $name, $slug, $description]);
             audit_log('Created food category', 'category', (int) $result['insert_id'], ['name' => $name]);
-            flash_set('success', 'Category added.');
+            flash_set('success', $name . ' was added to your categories.');
         }
         redirect('vendor.categories');
     }
@@ -202,7 +208,7 @@ final class VendorController extends Controller
             $db->commit();
         } catch (Throwable $e) { $db->rollback(); throw $e; }
         audit_log($next ? 'Activated vendor category' : 'Deactivated vendor category', 'category', $id);
-        flash_set('success', 'Category updated.');
+        flash_set('success', $category['name'] . ($next ? ' was activated.' : ' was deactivated.'));
         redirect('vendor.categories');
     }
 
@@ -224,7 +230,7 @@ final class VendorController extends Controller
         $note = InputValidator::text($_POST['note'] ?? '', 240, 'Note', false);
         $db = db(); $db->begin_transaction();
         try {
-            $inventory = db_one('SELECT i.* FROM inventory i JOIN foods f ON f.id=i.food_id WHERE i.food_id=? AND i.vendor_id=? FOR UPDATE', 'ii', [$foodId, (int) $vendor['id']]);
+            $inventory = db_one('SELECT i.*, f.name AS food_name FROM inventory i JOIN foods f ON f.id=i.food_id WHERE i.food_id=? AND i.vendor_id=? FOR UPDATE', 'ii', [$foodId, (int) $vendor['id']]);
             if (!$inventory) throw new HttpException(404, 'Inventory item not found.');
             $before = (float) $inventory['quantity'];
             if ($type === 'ADJUSTMENT') {
@@ -245,7 +251,8 @@ final class VendorController extends Controller
             $db->rollback();
             throw $e;
         }
-        flash_set('success', 'Inventory updated and movement recorded.');
+        $stockAfter = rtrim(rtrim(number_format($after, 2, '.', ''), '0'), '.');
+        flash_set('success', 'Stock for ' . $inventory['food_name'] . ' is now ' . $stockAfter . ' ' . $inventory['unit'] . '.');
         redirect('vendor.inventory');
     }
 
@@ -303,11 +310,11 @@ final class VendorController extends Controller
         [$user, $vendor] = $this->vendor('review.respond');
         $id = $this->positiveId($_POST['review_id'] ?? null, 'Review');
         $reply = InputValidator::text($_POST['vendor_response'] ?? '', 1000, 'Response');
-        $review = db_one('SELECT r.id FROM reviews r JOIN foods f ON f.id=r.food_id WHERE r.id=? AND f.vendor_id=? AND r.status=\'PUBLISHED\'', 'ii', [$id, (int) $vendor['id']]);
+        $review = db_one('SELECT r.id, f.name AS food_name FROM reviews r JOIN foods f ON f.id=r.food_id WHERE r.id=? AND f.vendor_id=? AND r.status=\'PUBLISHED\'', 'ii', [$id, (int) $vendor['id']]);
         if (!$review) $this->pageNotFound();
         db_exec('UPDATE reviews SET vendor_response=?, vendor_responded_at=NOW(), updated_at=NOW() WHERE id=?', 'si', [$reply, $id]);
         audit_log('Responded to review', 'review', $id);
-        flash_set('success', 'Response saved.');
+        flash_set('success', 'Your response to the review for ' . $review['food_name'] . ' was saved.');
         redirect('vendor.reviews');
     }
 
@@ -337,7 +344,7 @@ final class VendorController extends Controller
             $db->commit();
         } catch (Throwable $e) { $db->rollback(); throw $e; }
         audit_log('Updated vendor settings', 'vendor', (int) $vendor['id']);
-        flash_set('success', 'Store settings saved.');
+        flash_set('success', $name . ' storefront settings were saved.');
         redirect('vendor.settings');
     }
 

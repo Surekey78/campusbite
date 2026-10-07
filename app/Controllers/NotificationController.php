@@ -10,6 +10,37 @@ final class NotificationController extends Controller
         $this->view('student/notifications', compact('notifications') + ['title' => 'Notifications']);
     }
 
+    public function poll(): void
+    {
+        $user = current_user();
+        if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'message' => 'Sign in required.']);
+            return;
+        }
+
+        $after = filter_var($_GET['after'] ?? 0, FILTER_VALIDATE_INT);
+        if ($after === false || $after < 0) $after = 0;
+        $rows = db_all('SELECT id, title, body, created_at FROM notifications WHERE user_id=? AND id>? ORDER BY id ASC LIMIT 20', 'ii', [(int) $user['id'], (int) $after]);
+        $notifications = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            $notifications[] = [
+                'id' => $id,
+                'title' => (string) $row['title'],
+                'body' => (string) $row['body'],
+                'created_at' => format_datetime($row['created_at']),
+                'open_url' => app_url('notifications.open', ['id' => $id]),
+            ];
+        }
+        $unreadCount = (int) (db_one('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL', 'i', [(int) $user['id']])['n'] ?? 0);
+        echo json_encode(['ok' => true, 'unread_count' => $unreadCount, 'notifications' => $notifications], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
     public function read(): void
     {
         $this->postOnly();

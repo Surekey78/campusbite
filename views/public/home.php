@@ -36,22 +36,25 @@
 </section>
 
 <?php if ($featured): ?>
-<section aria-labelledby="featured-title">
-  <div class="section-heading"><div><h2 id="featured-title">Featured foods</h2><p>Good picks from active campus stalls.</p></div><a class="text-link" href="<?= h(app_url('foods')) ?>">Browse menu →</a></div>
-  <div class="food-grid"><?php foreach ($featured as $food): require APP_ROOT . '/views/components/food-card.php'; endforeach; ?></div>
+<section aria-labelledby="featured-title" class="featured-section">
+  <div class="section-heading"><div><h2 id="featured-title">Featured foods</h2><p>A few campus picks worth a closer look.</p></div><a class="text-link" href="<?= h(app_url('foods', ['sort' => 'featured'])) ?>">Browse menu →</a></div>
+  <div class="featured-food-layout<?= count($featured) === 1 ? ' featured-food-layout-single' : '' ?>">
+    <?php $food = $featured[0]; require APP_ROOT . '/views/components/featured-food-card.php'; ?>
+    <?php if (count($featured) > 1): ?><div class="featured-food-support<?= count($featured) === 2 ? ' featured-food-support-single' : '' ?>"><?php foreach (array_slice($featured, 1) as $food): require APP_ROOT . '/views/components/food-card.php'; endforeach; ?></div><?php endif; ?>
+  </div>
 </section>
 <?php endif; ?>
 
 <?php if ($popular): ?>
 <section aria-labelledby="popular-title">
-  <div class="section-heading"><div><h2 id="popular-title">Popular on campus</h2><p>Based on completed orders in CampusBite.</p></div><a class="text-link" href="<?= h(app_url('foods', ['sort' => 'popular'])) ?>">See popular →</a></div>
+  <div class="section-heading"><div><h2 id="popular-title">Popular on campus</h2><p>Based on completed CampusBite sales, including student pickups and vendor POS.</p></div><a class="text-link" href="<?= h(app_url('foods', ['sort' => 'popular'])) ?>">See popular →</a></div>
   <div class="food-grid"><?php foreach ($popular as $food): require APP_ROOT . '/views/components/food-card.php'; endforeach; ?></div>
 </section>
 <?php endif; ?>
 
 <?php if ($topRated): ?>
 <section aria-labelledby="rated-title">
-  <div class="section-heading"><div><h2 id="rated-title">Highly rated</h2><p>Ratings come from completed student pickups.</p></div><a class="text-link" href="<?= h(app_url('foods', ['sort' => 'rating'])) ?>">Top rated →</a></div>
+  <div class="section-heading"><div><h2 id="rated-title">Reviewed by students</h2><p>Foods with published reviews, ordered by average rating.</p></div><a class="text-link" href="<?= h(app_url('foods', ['sort' => 'rating'])) ?>">Browse ratings →</a></div>
   <div class="food-grid"><?php foreach ($topRated as $food): require APP_ROOT . '/views/components/food-card.php'; endforeach; ?></div>
 </section>
 <?php endif; ?>
