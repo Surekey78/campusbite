@@ -1315,3 +1315,10 @@ button:not(.link-button):not([data-sidebar-close]):disabled, .button:disabled {
   display: grid;
   gap: 12px;
 }
+
+/* Upgrade skeleton wireframes to brand-tinted warm gradients (sage & yellow accents) */
+.skeleton, .skeleton-block, .skeleton-line, .skeleton-avatar, .skeleton-title, .skeleton-card {
+  background: linear-gradient(90deg, rgba(220, 230, 225, 0.95) 25%, rgba(254, 243, 199, 0.7) 50%, rgba(220, 230, 225, 0.95) 75%) !important;
+  background-size: 200% 100% !important;
+  animation: skeleton-shimmer 1.2s infinite !important;
+}
