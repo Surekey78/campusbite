@@ -33,8 +33,16 @@ final class StudentController extends Controller
         $quantity = InputValidator::positiveInt($_POST['quantity'] ?? 1, 'Quantity', 1, 99);
         $food = db_one("SELECT f.id, f.name, f.vendor_id, f.is_available, i.id AS inventory_id, i.quantity AS stock, v.status AS vendor_status, v.name AS vendor_name, vs.accepting_orders FROM foods f JOIN vendors v ON v.id=f.vendor_id JOIN inventory i ON i.food_id=f.id LEFT JOIN vendor_settings vs ON vs.vendor_id=v.id WHERE f.id=?", 'i', [$foodId]);
         if (!$food || !(int) $food['is_available'] || $food['vendor_status'] !== 'ACTIVE' || !(int) $food['accepting_orders']) throw new InvalidArgumentException('That food is not available to order right now.');
-        $otherVendor = db_one('SELECT f.vendor_id FROM cart_items ci JOIN foods f ON f.id=ci.food_id WHERE ci.user_id=? AND f.vendor_id<>? LIMIT 1', 'ii', [(int) $user['id'], (int) $food['vendor_id']]);
-        if ($otherVendor) throw new InvalidArgumentException('Your cart is for one vendor at a time. Remove the other vendor’s items before adding this food.');
+        $otherVendor = db_one('SELECT f.vendor_id, v.name AS vendor_name FROM cart_items ci JOIN foods f ON f.id=ci.food_id JOIN vendors v ON v.id=f.vendor_id WHERE ci.user_id=? AND f.vendor_id<>? LIMIT 1', 'ii', [(int) $user['id'], (int) $food['vendor_id']]);
+        if ($otherVendor) {
+            if (isset($_POST['replace_cart']) && $_POST['replace_cart'] === '1') {
+                db_exec('DELETE FROM cart_items WHERE user_id=?', 'i', [(int) $user['id']]);
+            } else {
+                flash_set('vendor_conflict', 'Your cart currently has items from ' . $otherVendor['vendor_name'] . '. Would you like to clear your cart and start a new order with ' . $food['vendor_name'] . '?');
+                $_SESSION['_pending_cart_add'] = $_POST;
+                redirect('cart');
+            }
+        }
         $existing = db_one('SELECT quantity FROM cart_items WHERE user_id=? AND food_id=?', 'ii', [(int) $user['id'], $foodId]);
         $newQuantity = (int) ($existing['quantity'] ?? 0) + $quantity;
         if ($newQuantity > 99 || $newQuantity > (float) $food['stock']) throw new InvalidArgumentException('There is not enough stock for that quantity. Available now: ' . (int) $food['stock'] . '.');
