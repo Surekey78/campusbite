@@ -1,0 +1,26 @@
+CAMPUSBITE — SEEDED DEMO ACCOUNTS
+=================================
+
+Temporary demo password for every account: password
+Sign in using the email address shown below.
+
+ADMINISTRATOR
+- CampusBite Admin — admin@campusbite.test
+  User status: ACTIVE
+
+STUDENTS
+- Mika Santos — student@campusbite.test
+  User status: ACTIVE
+- Noah Reyes — noah@campusbite.test
+  User status: ACTIVE
+
+VENDORS
+- Ramon Dela Cruz — vendor@campusbite.test — Campus Grill
+  User status: ACTIVE; storefront status: ACTIVE
+- Liza Flores — mug@campusbite.test — Morning Mug
+  User status: ACTIVE; storefront status: ACTIVE
+- Cebu Campus Bakes — bakes@campusbite.test — Cebu Campus Bakes
+  User status: ACTIVE; storefront status: PENDING (awaiting administrator activation)
+
+SECURITY NOTE
+These are public demo credentials for local testing only. Change or remove them before any real deployment. Vendor accounts created by an administrator must be given an initial password securely and should change it after signing in.

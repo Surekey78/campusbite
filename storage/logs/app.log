@@ -26,3 +26,4 @@
 [2026-10-05 06:41:13] mysqli_sql_exception: No such file or directory in /data/data/com.termux/files/home/Downloads/campusbite/config/database.php:20
 [2026-10-05 06:41:15] mysqli_sql_exception: No such file or directory in /data/data/com.termux/files/home/Downloads/campusbite/config/database.php:20
 [2026-10-25 21:49:55] mysqli_sql_exception: No such file or directory in /data/data/com.termux/files/home/Downloads/campusbite/config/database.php:20
+[2026-10-26 10:07:59] mysqli_sql_exception: Data truncated for column 'status' at row 1 in /data/data/com.termux/files/home/Downloads/campusbite/app/Helpers/functions.php:220
