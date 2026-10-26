@@ -1271,3 +1271,21 @@ button:not(.link-button):not([data-sidebar-close]):disabled, .button:disabled {
   z-index: 100;
   backdrop-filter: blur(1px);
 }
+
+/* Structural skeleton loader wireframe shapes */
+.skeleton-block {
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s infinite;
+  border-radius: 6px;
+}
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.skeleton-line.short { width: 60%; }
+.skeleton-line.medium { width: 80%; }
