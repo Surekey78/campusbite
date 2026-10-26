@@ -1322,24 +1322,3 @@ button:not(.link-button):not([data-sidebar-close]):disabled, .button:disabled {
   background-size: 200% 100% !important;
   animation: skeleton-shimmer 1.2s infinite !important;
 }
-
-/* Replace overlay with a sleek top loading progress bar */
-.site-main.is-loading::after, .workspace-site-main.is-loading::after {
-  display: none !important;
-}
-.site-main.is-loading::before, .workspace-site-main.is-loading::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #f59e0b, #10b981, #f59e0b);
-  background-size: 200% 100%;
-  animation: top-loading-bar 1s infinite linear;
-  z-index: 9999;
-}
-@keyframes top-loading-bar {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
