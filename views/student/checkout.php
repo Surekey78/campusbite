@@ -16,7 +16,7 @@
     <p class="cash-note"><strong>CASH ONLY.</strong> No online payment is collected through CampusBite.</p>
     <form method="post" action="<?= h(app_url('order.place')) ?>" class="stack" data-submit-feedback>
       <?= csrf_field() ?>
-      <div class="form-field"><label for="customer-note">Pickup note <span class="muted">(optional)</span></label><textarea id="customer-note" name="customer_note" maxlength="300" rows="3" placeholder="Anything the vendor should know?"></textarea></div>
+      <div class="form-field"><label for="customer-note">Pickup note <span class="muted">(optional)</span></label><textarea id="customer-note" name="customer_note" maxlength="300" rows="3" placeholder="Anything the vendor should know?"<?= form_field_invalid_attr('customer_note') ?>><?= h(old('customer_note')) ?></textarea><?= field_error_html('customer_note') ?></div>
       <button class="button" type="submit" data-loading-text="Sending order…">Place order · <?= h(money($total)) ?></button>
       <p class="small muted" style="margin:0">The vendor confirms your order before preparing it.</p>
     </form>

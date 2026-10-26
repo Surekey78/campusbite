@@ -1201,3 +1201,30 @@ button:not(.link-button):not([data-sidebar-close]):disabled, .button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .system-toast { animation: none; }
 }
+
+.is-invalid,
+[aria-invalid="true"],
+.form-field input:user-invalid,
+.form-field select:user-invalid,
+.form-field textarea:user-invalid {
+  border: 2px solid #d9381e !important;
+  background-color: #fff5f5 !important;
+  box-shadow: 3px 3px 0 #d9381e !important;
+  outline: none !important;
+}
+
+.is-invalid:focus,
+[aria-invalid="true"]:focus {
+  outline: 2px solid #d9381e !important;
+  outline-offset: 2px !important;
+}
+
+.field-error-msg {
+  color: #c52811;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

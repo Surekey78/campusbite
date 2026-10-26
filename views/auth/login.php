@@ -4,8 +4,8 @@
   <p>Use your student, vendor, or administrator account.</p>
   <form method="post" action="<?= h(app_url('auth.login')) ?>" class="stack" data-submit-feedback>
     <?= csrf_field() ?>
-    <div class="form-field"><label for="email">Email</label><input id="email" type="email" name="email" autocomplete="username" maxlength="190" required autofocus></div>
-    <div class="form-field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required></div>
+    <div class="form-field"><label for="email">Email</label><input id="email" type="email" name="email" autocomplete="username" maxlength="190" value="<?= h(old('email')) ?>"<?= form_field_invalid_attr('email') ?> required autofocus><?= field_error_html('email') ?></div>
+    <div class="form-field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password"<?= form_field_invalid_attr('password') ?> required><?= field_error_html('password') ?></div>
     <button class="button" type="submit" data-loading-text="Signing in…">Sign in</button>
   </form>
   <p class="small muted" style="margin:18px 0 0">New to CampusBite? <a href="<?= h(app_url('auth.register')) ?>">Create a student account</a>.</p>

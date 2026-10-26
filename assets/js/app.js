@@ -77,7 +77,10 @@
   });
 
   document.querySelectorAll('form[data-submit-feedback]:not([data-pos-form])').forEach((form) => {
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event) => {
+      if (form.checkValidity && !form.checkValidity()) {
+        return;
+      }
       const button = form.querySelector('button[type="submit"]');
       if (button && !button.disabled) {
         button.dataset.originalText = button.textContent;
@@ -86,6 +89,71 @@
       }
     });
   });
+
+  document.addEventListener('invalid', (event) => {
+    const target = event.target;
+    if (target && target.form) {
+      target.classList.add('is-invalid');
+      target.setAttribute('aria-invalid', 'true');
+      const button = target.form.querySelector('button[type="submit"]');
+      if (button && button.dataset.originalText) {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText;
+      }
+    }
+  }, true);
+
+  document.addEventListener('input', (event) => {
+    const target = event.target;
+    if (target && target.classList && target.classList.contains('is-invalid')) {
+      target.classList.remove('is-invalid');
+      target.removeAttribute('aria-invalid');
+      const err = target.closest('.form-field')?.querySelector('.field-error-msg');
+      if (err) err.remove();
+    }
+  });
+
+  const highlightAndFocusError = () => {
+    let firstInvalid = document.querySelector('.is-invalid, [aria-invalid="true"]');
+    const errorToast = document.querySelector('[data-system-toast][data-toast-type="error"]');
+    if (!firstInvalid && errorToast) {
+      const text = (errorToast.textContent || '').toLowerCase();
+      const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+      for (const input of inputs) {
+        const name = (input.name || '').toLowerCase();
+        const id = (input.id || '').toLowerCase();
+        const labelText = input.labels?.[0]?.textContent?.toLowerCase() || '';
+        if (
+          (name && text.includes(name.replace('_', ' '))) ||
+          (id && text.includes(id.replace('-', ' '))) ||
+          (labelText && text.includes(labelText.replace('*', '').trim()))
+        ) {
+          input.classList.add('is-invalid');
+          input.setAttribute('aria-invalid', 'true');
+          firstInvalid = input;
+          break;
+        }
+      }
+      if (!firstInvalid && inputs.length > 0) {
+        const firstEditable = inputs.find((el) => !el.disabled && el.type !== 'submit');
+        if (firstEditable) {
+          firstEditable.classList.add('is-invalid');
+          firstEditable.setAttribute('aria-invalid', 'true');
+          firstInvalid = firstEditable;
+        }
+      }
+    }
+    if (firstInvalid) {
+      firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      try { firstInvalid.focus({ preventScroll: true }); } catch (e) {}
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', highlightAndFocusError);
+  } else {
+    highlightAndFocusError();
+  }
 
   document.querySelectorAll('[data-system-toast]').forEach((toast) => {
     const dismissButton = toast.querySelector('[data-toast-dismiss]');

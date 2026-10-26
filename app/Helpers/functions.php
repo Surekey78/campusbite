@@ -29,9 +29,129 @@ function redirect(string $route = 'home', array $params = []): void
     exit;
 }
 
+
+function detect_invalid_field(string $message, array $post): ?string
+{
+    $msg = strtolower($message);
+    $map = [
+        "email" => "email",
+        "full name" => "full_name",
+        "storefront name" => "store_name",
+        "store name" => isset($post["store_name"]) ? "store_name" : "name",
+        "account holder" => "owner_name",
+        "owner name" => "owner_name",
+        "name" => isset($post["full_name"]) ? "full_name" : (isset($post["owner_name"]) ? "owner_name" : (isset($post["store_name"]) ? "store_name" : "name")),
+        "phone" => "phone",
+        "confirm" => "password_confirmation",
+        "password" => isset($post["password"]) ? "password" : (isset($post["current_password"]) ? "current_password" : "new_password"),
+        "price" => "price",
+        "initial stock" => "initial_stock",
+        "stock" => isset($post["initial_stock"]) ? "initial_stock" : "stock",
+        "preparation" => "prep_minutes",
+        "prep" => "prep_minutes",
+        "pickup" => "pickup_location",
+        "stall" => "stall_label",
+        "category" => isset($post["category_id"]) ? "category_id" : "name",
+        "rating" => "rating",
+        "comment" => "comment",
+        "cash" => "cash_received",
+        "quantity" => "quantity",
+        "note" => isset($post["customer_note"]) ? "customer_note" : "note",
+        "title" => "title",
+        "content key" => "content_key",
+        "section" => "section",
+        "description" => "description",
+        "notice" => "store_notice",
+    ];
+    foreach ($map as $keyword => $field) {
+        if (str_contains($msg, $keyword) && (isset($post[$field]) || array_key_exists($field, $post))) {
+            return $field;
+        }
+    }
+    foreach ($post as $key => $val) {
+        if ($key !== "_csrf" && is_string($key) && strlen($key) > 1 && str_contains($msg, strtolower(str_replace("_", " ", $key)))) {
+            return $key;
+        }
+    }
+    return null;
+}
+
 function flash_set(string $type, string $message): void
 {
-    $_SESSION['_flash'][] = ['type' => $type, 'message' => $message];
+    $_SESSION["_flash"][] = ["type" => $type, "message" => $message];
+    if ($type === "error" && ($_SERVER["REQUEST_METHOD"] ?? "") === "POST" && empty($_SESSION["_old_input"])) {
+        $oldInput = $_POST;
+        unset($oldInput["_csrf"], $oldInput["password"], $oldInput["password_confirmation"], $oldInput["current_password"], $oldInput["new_password"]);
+        $_SESSION["_old_input"] = $oldInput;
+        $field = detect_invalid_field($message, $_POST);
+        if ($field) {
+            $_SESSION["_form_errors"] = [$field => $message];
+        }
+    }
+}
+
+function get_old_input(?string $key = null, $default = "")
+{
+    static $oldInput = null;
+    if ($oldInput === null) {
+        $oldInput = $_SESSION["_old_input"] ?? [];
+        unset($_SESSION["_old_input"]);
+    }
+    if ($key === null) return $oldInput;
+    return $oldInput[$key] ?? $default;
+}
+
+function old(string $key, $default = "")
+{
+    $val = get_old_input($key, null);
+    return $val !== null && is_scalar($val) ? (string) $val : $default;
+}
+
+function old_checked(string $key, bool $default = false, $value = "1"): bool
+{
+    $input = get_old_input();
+    if (array_key_exists($key, $input)) {
+        return (string) $input[$key] === (string) $value;
+    }
+    return $default;
+}
+
+function old_selected(string $key, $value, bool $default = false): bool
+{
+    $input = get_old_input();
+    if (array_key_exists($key, $input)) {
+        return (string) $input[$key] === (string) $value;
+    }
+    return $default;
+}
+
+function get_form_errors(?string $key = null): array|string|null
+{
+    static $errors = null;
+    if ($errors === null) {
+        $errors = $_SESSION["_form_errors"] ?? [];
+        unset($_SESSION["_form_errors"]);
+    }
+    if ($key === null) return $errors;
+    return $errors[$key] ?? null;
+}
+
+function form_field_error(string $key): ?string
+{
+    $err = get_form_errors($key);
+    return is_string($err) ? $err : null;
+}
+
+function form_field_invalid_attr(string $key): string
+{
+    $err = form_field_error($key);
+    return $err !== null ? " class=\"is-invalid\" aria-invalid=\"true\"" : "";
+}
+
+function field_error_html(string $key): string
+{
+    $err = form_field_error($key);
+    return $err !== null ? "<span class=\"field-error-msg\" role=\"alert\">" . h($err) . "</span>" : "";
 }
 
 function flash_take(): array

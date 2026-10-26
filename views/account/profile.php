@@ -21,9 +21,9 @@
         <?php endif; ?>
       </div>
     </div>
-    <div class="form-field full"><label for="full-name">Full name</label><input id="full-name" name="full_name" maxlength="120" autocomplete="name" value="<?= h($user['full_name']) ?>" required></div>
+    <div class="form-field full"><label for="full-name">Full name</label><input id="full-name" name="full_name" maxlength="120" autocomplete="name" value="<?= h(old('full_name', $user['full_name'])) ?>"<?= form_field_invalid_attr('full_name') ?> required><?= field_error_html('full_name') ?></div>
     <div class="form-field full"><label for="email">Email address</label><input id="email" type="email" value="<?= h($user['email']) ?>" disabled><span class="field-hint">For an email correction, contact your campus administrator.</span></div>
-    <div class="form-field full"><label for="phone">Phone <span class="muted">(optional)</span></label><input id="phone" name="phone" type="tel" maxlength="30" autocomplete="tel" value="<?= h($user['phone'] ?? '') ?>"><span class="field-hint">Used only as account contact information.</span></div>
+    <div class="form-field full"><label for="phone">Phone <span class="muted">(optional)</span></label><input id="phone" name="phone" type="tel" maxlength="30" autocomplete="tel" value="<?= h(old('phone', $user['phone'] ?? '')) ?>"<?= form_field_invalid_attr('phone') ?>><span class="field-hint">Used only as account contact information.</span><?= field_error_html('phone') ?></div>
     <div class="form-field full"><div class="form-actions"><button class="button" type="submit" data-loading-text="Saving…">Save profile</button><a class="button button-secondary" href="<?= h(app_url('account.password')) ?>">Change password</a></div></div>
   </form>
 </section>
