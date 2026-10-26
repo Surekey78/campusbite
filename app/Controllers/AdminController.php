@@ -15,8 +15,11 @@ final class AdminController extends Controller
     public function dashboard(): void
     {
         $this->admin('dashboard.view');
+        $graceMinutes = (int) PICKUP_GRACE_MINUTES;
         $summary = db_one("SELECT
             (SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name='STUDENT' AND u.status='ACTIVE') AS students,
+            (SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name='STUDENT' AND u.status='PENDING') AS pending_students,
+            (SELECT COUNT(*) FROM orders WHERE source='STUDENT' AND status='READY' AND ready_at IS NOT NULL AND ready_at<=NOW()-INTERVAL {$graceMinutes} MINUTE) AS overdue_pickups,
             (SELECT COUNT(*) FROM vendors) AS vendors,
             (SELECT COUNT(*) FROM vendors WHERE status='ACTIVE') AS active_vendors,
             (SELECT COUNT(*) FROM foods) AS foods,
@@ -36,7 +39,7 @@ final class AdminController extends Controller
         $role = strtoupper((string) ($_GET['role'] ?? ''));
         if (!in_array($role, ['STUDENT', 'VENDOR', 'ADMIN'], true)) $role = '';
         $status = strtoupper((string) ($_GET['status'] ?? ''));
-        if (!in_array($status, ['ACTIVE', 'SUSPENDED'], true)) $status = '';
+        if (!in_array($status, ['PENDING', 'ACTIVE', 'SUSPENDED'], true)) $status = '';
         $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = 25; $offset = ($page - 1) * $limit;
         $where = ' WHERE 1=1'; $types = ''; $params = [];
         if ($q !== '') { $where .= ' AND (u.full_name LIKE ? OR u.email LIKE ?)'; $types .= 'ss'; $term = '%' . $q . '%'; array_push($params, $term, $term); }
@@ -56,7 +59,16 @@ final class AdminController extends Controller
         if ($id === (int) $actor['id']) throw new InvalidArgumentException('You cannot suspend your own administrator account.');
         $user = db_one('SELECT u.id, u.full_name, u.status, r.name AS role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', 'i', [$id]);
         if (!$user) $this->pageNotFound();
-        $next = $user['status'] === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+        if ($user['status'] === 'PENDING') {
+            $next = 'ACTIVE';
+            $statusAction = 'Approved student account';
+        } elseif ($user['status'] === 'ACTIVE') {
+            $next = 'SUSPENDED';
+            $statusAction = 'Suspended user account';
+        } else {
+            $next = 'ACTIVE';
+            $statusAction = 'Reactivated user account';
+        }
         $vendorImpact = null;
         $db = db(); $db->begin_transaction();
         try {
@@ -70,7 +82,7 @@ final class AdminController extends Controller
             }
             $db->commit();
         } catch (Throwable $e) { $db->rollback(); throw $e; }
-        audit_log('Changed user status', 'user', $id, ['from' => $user['status'], 'to' => $next, 'vendor_suspended' => !empty($vendorImpact) && $vendorImpact['status'] === 'ACTIVE']);
+        audit_log($statusAction, 'user', $id, ['from' => $user['status'], 'to' => $next, 'vendor_suspended' => !empty($vendorImpact) && $vendorImpact['status'] === 'ACTIVE']);
         flash_set('success', $user['full_name'] . ' is now ' . strtolower($next) . '.');
         redirect('admin.users');
     }
@@ -269,7 +281,8 @@ final class AdminController extends Controller
         $status = strtoupper((string) ($_GET['status'] ?? ''));
         if (!in_array($status, ORDER_STATUSES, true)) $status = '';
         $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = 25; $offset = ($page - 1) * $limit;
-        $sql = 'SELECT o.*, v.name AS vendor_name, u.full_name AS student_name, p.status AS payment_status, p.cash_received FROM orders o JOIN vendors v ON v.id=o.vendor_id LEFT JOIN users u ON u.id=o.user_id LEFT JOIN payments p ON p.order_id=o.id';
+        $graceMinutes = (int) PICKUP_GRACE_MINUTES;
+        $sql = "SELECT o.*, CASE WHEN o.source='STUDENT' AND o.status='READY' AND o.ready_at IS NOT NULL AND o.ready_at<=NOW()-INTERVAL {$graceMinutes} MINUTE THEN 1 ELSE 0 END AS no_show_allowed, v.name AS vendor_name, u.full_name AS student_name, p.status AS payment_status, p.cash_received FROM orders o JOIN vendors v ON v.id=o.vendor_id LEFT JOIN users u ON u.id=o.user_id LEFT JOIN payments p ON p.order_id=o.id";
         if ($status !== '') {
             $orders = db_all($sql . ' WHERE o.status=? ORDER BY o.created_at DESC LIMIT ? OFFSET ?', 'sii', [$status, $limit, $offset]);
             $total = (int) (db_one('SELECT COUNT(*) AS n FROM orders WHERE status=?', 's', [$status])['n'] ?? 0);

@@ -6,7 +6,9 @@
   <div class="kpi"><span class="kpi-label">Sales completed today</span><strong class="kpi-value"><?= h(money($summary['sales_today'])) ?></strong><span class="kpi-note">Cash orders completed today</span></div>
 </div>
 <div class="admin-alerts">
+  <a class="alert-link" href="<?= h(app_url('admin.users', ['status'=>'PENDING'])) ?>"><span class="alert-count"><?= (int) $summary['pending_students'] ?></span><span><strong>Student account requests</strong><br><span class="muted small">Awaiting approval</span></span><span aria-hidden="true">→</span></a>
   <a class="alert-link" href="<?= h(app_url('admin.vendors', ['status'=>'PENDING'])) ?>"><span class="alert-count"><?= (int) $summary['pending_vendors'] ?></span><span><strong>Pending storefronts</strong><br><span class="muted small">Awaiting activation</span></span><span aria-hidden="true">→</span></a>
+  <a class="alert-link" href="<?= h(app_url('admin.orders', ['status'=>'READY'])) ?>"><span class="alert-count"><?= (int) $summary['overdue_pickups'] ?></span><span><strong>Overdue pickups</strong><br><span class="muted small">Ready for 15 minutes or more</span></span><span aria-hidden="true">→</span></a>
   <a class="alert-link" href="<?= h(app_url('admin.reviews')) ?>"><span class="alert-count"><?= (int) $summary['reported_reviews'] ?></span><span><strong>Reported reviews</strong><br><span class="muted small">Open reports</span></span><span aria-hidden="true">→</span></a>
   <a class="alert-link" href="<?= h(app_url('admin.inventory', ['stock'=>'LOW'])) ?>"><span class="alert-count"><?= (int) $summary['low_stock_items'] ?></span><span><strong>Low-stock products</strong><br><span class="muted small">Across all vendors</span></span><span aria-hidden="true">→</span></a>
 </div>

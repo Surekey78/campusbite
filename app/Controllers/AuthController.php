@@ -21,7 +21,17 @@ final class AuthController extends Controller
             $passwordValue = $_POST['password'] ?? '';
             $password = is_string($passwordValue) ? $passwordValue : '';
             $user = db_one('SELECT id, password_hash, status FROM users WHERE email=? LIMIT 1', 's', [$email]);
-            if (!$user || !password_verify($password, $user['password_hash']) || $user['status'] !== 'ACTIVE') {
+            if (!$user || !password_verify($password, $user['password_hash'])) {
+                db_exec("INSERT INTO login_attempts (attempt_key, attempts, window_started_at, updated_at) VALUES (?, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE attempts=IF(window_started_at < NOW()-INTERVAL 15 MINUTE, 1, LEAST(attempts+1,255)), window_started_at=IF(window_started_at < NOW()-INTERVAL 15 MINUTE, NOW(), window_started_at), updated_at=NOW()", 's', [$attemptKey]);
+                flash_set('error', 'Email or password is incorrect. Check your details and try again.');
+                redirect('auth.login');
+            }
+            if ($user['status'] === 'PENDING') {
+                db_exec('DELETE FROM login_attempts WHERE attempt_key=?', 's', [$attemptKey]);
+                flash_set('info', 'Your student account is awaiting administrator approval. You can browse foods while it is reviewed.');
+                redirect('auth.login');
+            }
+            if ($user['status'] !== 'ACTIVE') {
                 db_exec("INSERT INTO login_attempts (attempt_key, attempts, window_started_at, updated_at) VALUES (?, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE attempts=IF(window_started_at < NOW()-INTERVAL 15 MINUTE, 1, LEAST(attempts+1,255)), window_started_at=IF(window_started_at < NOW()-INTERVAL 15 MINUTE, NOW(), window_started_at), updated_at=NOW()", 's', [$attemptKey]);
                 flash_set('error', 'Email or password is incorrect. Check your details and try again.');
                 redirect('auth.login');
@@ -44,6 +54,7 @@ final class AuthController extends Controller
 
     public function register(): void
     {
+        if (current_user()) redirect('home');
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $name = InputValidator::text($_POST['full_name'] ?? '', 120, 'Full name');
             $email = InputValidator::email($_POST['email'] ?? '');
@@ -55,13 +66,12 @@ final class AuthController extends Controller
             if (db_one('SELECT id FROM users WHERE email=?', 's', [$email])) throw new InvalidArgumentException('That email is already registered. Sign in or use another email.');
             $phone = InputValidator::text($_POST['phone'] ?? '', 30, 'Phone', false);
             $role = db_one("SELECT id FROM roles WHERE name='STUDENT'");
-            $insert = db_exec('INSERT INTO users (role_id, full_name, email, password_hash, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, \'ACTIVE\', NOW(), NOW())', 'issss', [(int) $role['id'], $name, $email, password_hash($password, PASSWORD_DEFAULT), $phone ?: null]);
+            $insert = db_exec('INSERT INTO users (role_id, full_name, email, password_hash, phone, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, \'PENDING\', NOW(), NOW())', 'issss', [(int) $role['id'], $name, $email, password_hash($password, PASSWORD_DEFAULT), $phone ?: null]);
             session_regenerate_id(true);
             unset($_SESSION['_csrf']);
-            $_SESSION['user_id'] = (int) $insert['insert_id'];
-            audit_log('Registered student account', 'user', (int) $insert['insert_id']);
-            flash_set('success', 'Your student account is ready. Add food from a vendor to begin.');
-            redirect('foods');
+            audit_log('Requested student account approval', 'user', (int) $insert['insert_id']);
+            flash_set('success', 'Your student account request was submitted. An administrator must approve it before you can sign in and place orders. You can browse foods while you wait.');
+            redirect('auth.login');
         }
         $this->view('auth/register', ['title' => 'Create a student account']);
     }

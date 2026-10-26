@@ -1,5 +1,5 @@
 <div class="page-heading"><div><p class="eyebrow">Order tracking</p><h1><?= h($order['order_number']) ?></h1><p>Placed <?= h(format_datetime($order['created_at'])) ?> · <?= h($order['vendor_name']) ?></p></div><a class="button button-secondary" href="<?= h(app_url('my.orders')) ?>">All orders</a></div>
-<?php if ($order['status'] === 'READY'): ?><div class="ready-banner" role="status"><strong>Your order is ready for pickup</strong><p>Show order <?= h($order['order_number']) ?> to <?= h($order['vendor_name']) ?>.</p></div><?php endif; ?>
+<?php if ($order['status'] === 'READY'): ?><div class="ready-banner" role="status"><strong>Your order is ready for pickup</strong><p>Show order <?= h($order['order_number']) ?> to <?= h($order['vendor_name']) ?>. Please collect it within <?= (int) PICKUP_GRACE_MINUTES ?> minutes after it is marked ready; the vendor may record it as not picked up after that.</p></div><?php elseif ($order['status'] === 'NO_SHOW'): ?><div class="alert alert-info" role="status"><span aria-hidden="true">i</span><div><strong>Order not picked up</strong><br>The pickup window passed. This cash order remains unpaid; prepared food was not returned to inventory. Contact the vendor if you believe this status is incorrect.</div></div><?php endif; ?>
 <?php require APP_ROOT . '/views/components/order-timeline.php'; ?>
 <div class="cart-layout">
   <section class="panel">
@@ -10,7 +10,7 @@
       <?php endif; ?>
     <?php endforeach; ?>
     <div class="summary-line summary-total"><span>Total</span><strong><?= h(money($order['total'])) ?></strong></div>
-    <div class="cash-note" style="margin-top:14px"><strong>Cash · <?= h(strtolower($order['payment_status'] ?? 'unpaid')) ?></strong><br><?php if (($order['payment_status'] ?? '') === 'PAID'): ?>Received <?= h(money($order['cash_received'])) ?><?php else: ?>Pay <?= h(money($order['total'])) ?> at pickup.<?php endif; ?></div>
+    <div class="cash-note" style="margin-top:14px"><strong>Cash · <?= h(strtolower($order['payment_status'] ?? 'unpaid')) ?></strong><br><?php if (($order['payment_status'] ?? '') === 'PAID'): ?>Received <?= h(money($order['cash_received'])) ?><?php elseif ($order['status'] === 'NO_SHOW'): ?>No payment was collected or charged for this uncollected order.<?php else: ?>Pay <?= h(money($order['total'])) ?> at pickup.<?php endif; ?></div>
   </section>
   <aside class="stack">
     <section class="panel"><h2 class="panel-title">Pickup details</h2><p><strong><?= h($order['vendor_name']) ?></strong></p><p><?= h($order['pickup_location']) ?></p><p class="muted small">Estimated preparation: about <?= (int) $order['prep_estimate_minutes'] ?> minutes.</p><?php if ($order['customer_note']): ?><div class="alert alert-info"><span aria-hidden="true">i</span><div><strong>Your note</strong><br><?= nl2br(h($order['customer_note'])) ?></div></div><?php endif; ?></section>

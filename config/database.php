@@ -8,7 +8,7 @@ function db(): mysqli
     }
 
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-    $host = getenv('CAMPUSBITE_DB_HOST') ?: 'localhost';
+    $host = getenv('CAMPUSBITE_DB_HOST') ?: '127.0.0.1';
     $user = getenv('CAMPUSBITE_DB_USER') ?: 'root';
     $password = getenv('CAMPUSBITE_DB_PASSWORD');
     if ($password === false) {
@@ -16,22 +16,8 @@ function db(): mysqli
     }
     $database = getenv('CAMPUSBITE_DB_NAME') ?: 'campusbite';
     $port = (int) (getenv('CAMPUSBITE_DB_PORT') ?: 3306);
-    $socket = getenv('CAMPUSBITE_DB_SOCKET');
-    if ($socket === false || $socket === '') {
-        $termuxSocket = '/data/data/com.termux/files/usr/var/run/mysqld.sock';
-        if (file_exists($termuxSocket)) {
-            $socket = $termuxSocket;
-        } else {
-            $socket = null;
-        }
-    }
 
-    if ($socket !== null) {
-        $connection = new mysqli($host, $user, $password, $database, $port, $socket);
-    } else {
-        $connection = new mysqli($host, $user, $password, $database, $port);
-    }
-
+    $connection = new mysqli($host, $user, $password, $database, $port);
     $connection->set_charset('utf8mb4');
     $connection->query("SET time_zone = '+08:00'");
     return $connection;

@@ -46,7 +46,7 @@ final class OrderService
                 $after = $before - $quantity;
                 $changed = db_exec('UPDATE inventory SET quantity=?, updated_at=NOW() WHERE id=? AND quantity>=?', 'did', [$after, (int) $item['inventory_id'], $quantity]);
                 if ($changed['affected'] !== 1) throw new RuntimeException('Stock changed while checkout was in progress.');
-                self::movement((int) $item['inventory_id'], 'SALE', -$quantity, $before, $after, 'Reserved for ' . $number, 'ORDER', $orderId, $userId);
+                self::movement((int) $item['inventory_id'], 'RESERVATION', -$quantity, $before, $after, 'Reserved for ' . $number, 'ORDER', $orderId, $userId);
             }
 
             db_exec("INSERT INTO payments (order_id, method, status, amount, cash_received, change_due, created_at) VALUES (?, 'CASH', 'UNPAID', ?, 0, 0, NOW())", 'id', [$orderId, $subtotal]);
@@ -79,6 +79,20 @@ final class OrderService
                 throw new InvalidArgumentException('That order cannot move from ' . status_label($order['status']) . ' to ' . status_label($newStatus) . '.');
             }
 
+            if ($newStatus === 'NO_SHOW') {
+                if (!in_array($actorRole, ['VENDOR', 'ADMIN'], true)) throw new HttpException(403, 'Only a vendor or administrator can record an uncollected order.');
+                if ($order['source'] !== 'STUDENT' || $order['status'] !== 'READY') throw new InvalidArgumentException('Only a ready student pickup order can be marked not picked up.');
+                $graceMinutes = (int) PICKUP_GRACE_MINUTES;
+                $window = db_one('SELECT (ready_at IS NOT NULL AND ready_at <= NOW() - INTERVAL ' . $graceMinutes . ' MINUTE) AS elapsed FROM orders WHERE id=?', 'i', [$orderId]);
+                if (!(int) ($window['elapsed'] ?? 0)) throw new InvalidArgumentException('Wait until the ' . $graceMinutes . '-minute pickup window has passed before marking this order not picked up.');
+                $payment = db_one('SELECT method, status FROM payments WHERE order_id=? FOR UPDATE', 'i', [$orderId]);
+                if (!$payment || $payment['method'] !== 'CASH' || $payment['status'] !== 'UNPAID') throw new InvalidArgumentException('Only an unpaid cash pickup order can be marked not picked up.');
+                $systemNote = 'No-show after ' . $graceMinutes . '-minute pickup window; prepared food recorded as waste, stock not restored, and cash remains unpaid.';
+                $customNote = trim($note);
+                $customLimit = max(0, 239 - mb_strlen($systemNote, 'UTF-8'));
+                $note = ($customNote !== '' ? mb_substr($customNote, 0, $customLimit, 'UTF-8') . ' ' : '') . $systemNote;
+            }
+
             if ($newStatus === 'COMPLETED') {
                 $payment = db_one('SELECT * FROM payments WHERE order_id=? FOR UPDATE', 'i', [$orderId]);
                 if (!$payment || $payment['method'] !== 'CASH') throw new RuntimeException('The cash payment record is missing. Ask an administrator to check this order.');
@@ -98,6 +112,13 @@ final class OrderService
                 }
             }
 
+            if ($newStatus === 'COMPLETED') {
+                db_exec("UPDATE inventory_movements SET movement_type='SALE', note=?, changed_by=? WHERE reference_type='ORDER' AND reference_id=? AND movement_type='RESERVATION'", 'sii', ['Completed sale ' . $order['order_number'], $actorId, $orderId]);
+            } elseif ($newStatus === 'NO_SHOW') {
+                $wasteNote = 'No-show order ' . $order['order_number'] . ': prepared food not collected; reserved stock treated as waste and not returned to inventory.';
+                db_exec("UPDATE inventory_movements SET movement_type='WASTE', note=?, changed_by=? WHERE reference_type='ORDER' AND reference_id=? AND movement_type IN ('RESERVATION','SALE')", 'sii', [$wasteNote, $actorId, $orderId]);
+            }
+
             $timestampColumn = match ($newStatus) {
                 'CONFIRMED' => ', accepted_at=NOW()',
                 'READY' => ', ready_at=NOW()',
@@ -111,7 +132,10 @@ final class OrderService
             $studentId = $order['user_id'] ? (int) $order['user_id'] : null;
             if ($studentId) {
                 try {
-                    notify_user($studentId, 'Order update: ' . status_label($newStatus), 'Order ' . $order['order_number'] . ' is now ' . strtolower(status_label($newStatus)) . '.', 'my.order&id=' . $orderId);
+                    $notificationBody = $newStatus === 'NO_SHOW'
+                        ? 'Order ' . $order['order_number'] . ' was marked not picked up after the ' . (int) PICKUP_GRACE_MINUTES . '-minute pickup window. No cash was collected or charged, and prepared food was not returned to stock.'
+                        : 'Order ' . $order['order_number'] . ' is now ' . strtolower(status_label($newStatus)) . '.';
+                    notify_user($studentId, 'Order update: ' . status_label($newStatus), $notificationBody, 'my.order&id=' . $orderId);
                 } catch (Throwable $notificationError) {
                     app_log($notificationError);
                 }

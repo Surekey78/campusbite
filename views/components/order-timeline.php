@@ -3,7 +3,7 @@ $timelineStatuses = ['PENDING' => 'Order placed', 'CONFIRMED' => 'Confirmed', 'P
 $currentStatus = (string) ($order['status'] ?? '');
 $sequence = array_keys($timelineStatuses);
 $currentIndex = array_search($currentStatus, $sequence, true);
-$terminal = in_array($currentStatus, ['CANCELLED', 'REJECTED'], true);
+$terminal = in_array($currentStatus, ['CANCELLED', 'REJECTED', 'NO_SHOW'], true);
 ?>
 <div class="order-track">
   <div class="spread"><strong>Order progress</strong><?php $status = $currentStatus; require APP_ROOT . '/views/components/status-badge.php'; ?></div>

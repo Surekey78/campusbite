@@ -13,7 +13,7 @@ final class Order
             'PENDING' => ['CONFIRMED', 'REJECTED', 'CANCELLED'],
             'CONFIRMED' => ['PREPARING', 'CANCELLED'],
             'PREPARING' => ['READY', 'CANCELLED'],
-            'READY' => ['COMPLETED'],
+            'READY' => ['COMPLETED', 'NO_SHOW'],
             default => [],
         };
     }

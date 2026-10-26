@@ -42,10 +42,11 @@ final class VendorController extends Controller
         $status = strtoupper(trim((string) ($_GET['status'] ?? '')));
         if ($status !== '' && !in_array($status, ORDER_STATUSES, true)) $status = '';
         $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = 20; $offset = ($page - 1) * $limit;
-        $sql = "SELECT o.*, u.full_name AS student_name, p.status AS payment_status, p.cash_received, (SELECT GROUP_CONCAT(CONCAT(oi.quantity, ' × ', oi.food_name) SEPARATOR ', ') FROM order_items oi WHERE oi.order_id=o.id) AS item_summary FROM orders o LEFT JOIN users u ON u.id=o.user_id LEFT JOIN payments p ON p.order_id=o.id WHERE o.vendor_id=?";
+        $graceMinutes = (int) PICKUP_GRACE_MINUTES;
+        $sql = "SELECT o.*, CASE WHEN o.source='STUDENT' AND o.status='READY' AND o.ready_at IS NOT NULL AND o.ready_at<=NOW()-INTERVAL {$graceMinutes} MINUTE THEN 1 ELSE 0 END AS no_show_allowed, u.full_name AS student_name, p.status AS payment_status, p.cash_received, (SELECT GROUP_CONCAT(CONCAT(oi.quantity, ' × ', oi.food_name) SEPARATOR ', ') FROM order_items oi WHERE oi.order_id=o.id) AS item_summary FROM orders o LEFT JOIN users u ON u.id=o.user_id LEFT JOIN payments p ON p.order_id=o.id WHERE o.vendor_id=?";
         $types = 'i'; $params = [(int) $vendor['id']];
         if ($status !== '') { $sql .= ' AND o.status=?'; $types .= 's'; $params[] = $status; }
-        $sql .= ' ORDER BY FIELD(o.status, \'PENDING\',\'CONFIRMED\',\'PREPARING\',\'READY\',\'COMPLETED\',\'CANCELLED\',\'REJECTED\'), o.created_at DESC LIMIT ? OFFSET ?';
+        $sql .= ' ORDER BY FIELD(o.status, \'PENDING\',\'CONFIRMED\',\'PREPARING\',\'READY\',\'COMPLETED\',\'NO_SHOW\',\'CANCELLED\',\'REJECTED\'), o.created_at DESC LIMIT ? OFFSET ?';
         $types .= 'ii'; $params[] = $limit; $params[] = $offset;
         $orders = db_all($sql, $types, $params);
         $countSql = 'SELECT COUNT(*) AS n FROM orders WHERE vendor_id=?' . ($status !== '' ? ' AND status=?' : '');
