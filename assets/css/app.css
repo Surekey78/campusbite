@@ -1246,3 +1246,11 @@ button:not(.link-button):not([data-sidebar-close]):disabled, .button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; background: rgba(0,0,0,0.08); }
 }
+
+/* Immediate navigation loading state */
+.site-main.is-loading, .workspace-site-main.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: wait;
+  transition: opacity .12s ease;
+}

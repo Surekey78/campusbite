@@ -442,3 +442,14 @@
     button.addEventListener('click', () => window.print());
   });
 })();
+
+  // Immediate navigation response and loading visibility
+  document.querySelectorAll('.workspace-navigation a, .student-bottom-nav a, .main-nav a').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !event.ctrlKey && !event.metaKey && link.target !== '_blank') {
+        const main = document.querySelector('.workspace-site-main, .site-main');
+        if (main) main.classList.add('is-loading');
+      }
+    });
+  });
