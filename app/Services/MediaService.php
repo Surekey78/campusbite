@@ -53,14 +53,22 @@ final class MediaService
     {
         $row = db_one('SELECT m.id, m.mime_type, m.file_size, m.file_hash, m.data FROM media m WHERE m.id=? LIMIT 1', 'i', [$id]);
         if (!$row) throw new HttpException(404, 'That image could not be found.');
+
+        $etag = '"' . $row['file_hash'] . '"';
+        header('ETag: ' . $etag);
         header('Content-Type: ' . $row['mime_type']);
-        header('Content-Length: ' . (int) $row['file_size']);
-        header($privateProfilePhoto ? 'Cache-Control: private, no-store, max-age=0, must-revalidate' : 'Cache-Control: private, max-age=86400');
+        header($privateProfilePhoto ? 'Cache-Control: private, no-store, max-age=0, must-revalidate' : 'Cache-Control: public, max-age=31536000, immutable');
         if ($privateProfilePhoto) {
             header('Pragma: no-cache');
             header('Expires: 0');
         }
-        header('ETag: "' . $row['file_hash'] . '"');
+
+        if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === $etag) {
+            http_response_code(304);
+            exit;
+        }
+
+        header('Content-Length: ' . (int) $row['file_size']);
         echo $row['data'];
         exit;
     }
