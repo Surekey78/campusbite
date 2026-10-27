@@ -443,13 +443,37 @@
   });
 })();
 
-  // Immediate navigation response and loading visibility
+  // Immediate navigation adaptive wireframe skeleton placeholder state
   document.querySelectorAll('.workspace-navigation a, .student-bottom-nav a, .main-nav a').forEach((link) => {
     link.addEventListener('click', (event) => {
       const href = link.getAttribute('href');
       if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !event.ctrlKey && !event.metaKey && link.target !== '_blank') {
         const main = document.querySelector('.workspace-site-main, .site-main');
-        if (main) main.classList.add('is-loading');
+        if (main) {
+          main.classList.add('is-loading');
+          main.innerHTML = `
+            <div style="padding: 24px; display: grid; gap: 20px;" aria-hidden="true" role="status" aria-label="Loading page layout...">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div class="skeleton-line short" style="width: 120px; height: 12px; margin-bottom: 8px;"></div>
+                  <div class="skeleton-title" style="width: 240px; height: 32px; margin-bottom: 0;"></div>
+                </div>
+                <div class="skeleton-block" style="width: 110px; height: 38px; border-radius: 6px;"></div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div class="skeleton-card" style="padding: 16px;"><div class="skeleton-line short" style="margin-bottom: 8px;"></div><div class="skeleton-title" style="width: 80%; height: 24px;"></div></div>
+                <div class="skeleton-card" style="padding: 16px;"><div class="skeleton-line short" style="margin-bottom: 8px;"></div><div class="skeleton-title" style="width: 80%; height: 24px;"></div></div>
+                <div class="skeleton-card" style="padding: 16px;"><div class="skeleton-line short" style="margin-bottom: 8px;"></div><div class="skeleton-title" style="width: 80%; height: 24px;"></div></div>
+              </div>
+              <div class="skeleton-card" style="padding: 20px; display: grid; gap: 12px;">
+                <div class="skeleton-title" style="width: 30%;"></div>
+                <div class="skeleton-line medium"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+              </div>
+            </div>
+          `;
+        }
       }
     });
   });
